@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "Stimzzy'sgram",
+    "slug": "stimzzysgram",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "splash": { "backgroundColor": "#0B1020" },
+    "ios": { "supportsTablet": true, "bundleIdentifier": "com.stimzzy.stimzzysgram",
+      "infoPlist": { "NSCameraUsageDescription": "Take photos and videos to share.", "NSMicrophoneUsageDescription": "Record voice messages and videos.", "NSPhotoLibraryUsageDescription": "Choose photos and videos to share." } },
+    "android": { "package": "com.stimzzy.stimzzysgram", "adaptiveIcon": { "backgroundColor": "#0B1020" },
+      "permissions": ["CAMERA", "RECORD_AUDIO", "READ_EXTERNAL_STORAGE"] },
+    "plugins": ["expo-image-picker", "expo-av"]
+  }
+}

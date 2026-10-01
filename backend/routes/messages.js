@@ -1,0 +1,10 @@
+const router = require('express').Router();
+const c = require('../controllers/messageController');
+const { protect } = require('../middleware/auth');
+const upload = require('../middleware/upload');
+router.use(protect);
+router.post('/', upload.single('media'), c.send);
+router.get('/with/:userId', c.thread);
+router.post('/:id/react', c.react);
+router.delete('/:id', c.remove);
+module.exports = router;

@@ -1,0 +1,12 @@
+const router = require('express').Router();
+const c = require('../controllers/storyController');
+const { protect } = require('../middleware/auth');
+const upload = require('../middleware/upload');
+router.use(protect);
+router.get('/', c.feed);
+router.post('/', upload.single('media'), c.create);
+router.post('/:id/view', c.view);
+router.post('/:id/react', c.react);
+router.post('/:id/reply', c.reply);
+router.delete('/:id', c.remove);
+module.exports = router;

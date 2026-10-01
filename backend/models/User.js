@@ -1,0 +1,43 @@
+const mongoose = require('mongoose');
+const { Schema } = mongoose;
+const userSchema = new Schema({
+  fullName: { type: String, required: true, trim: true, maxlength: 60 },
+  username: { type: String, required: true, unique: true, lowercase: true, trim: true, match: /^[a-z0-9._]{3,30}$/ },
+  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+  password: { type: String, required: true, select: false },
+  dateOfBirth: Date,
+  avatar: { type: String, default: '' },
+  bio: { type: String, default: '', maxlength: 200 },
+  website: { type: String, default: '' },
+  phone: { type: String, default: '' },
+  isVerified: { type: Boolean, default: false },
+  isPrivate: { type: Boolean, default: false },
+  role: { type: String, enum: ['user', 'admin'], default: 'user' },
+  isSuspended: { type: Boolean, default: false },
+  followersCount: { type: Number, default: 0 },
+  followingCount: { type: Number, default: 0 },
+  postsCount: { type: Number, default: 0 },
+  blocked: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+  closeFriends: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+  privacy: {
+    messages: { type: String, enum: ['everyone', 'followers', 'none'], default: 'everyone' },
+    comments: { type: String, enum: ['everyone', 'followers', 'none'], default: 'everyone' },
+    mentions: { type: String, enum: ['everyone', 'followers', 'none'], default: 'everyone' },
+    tags: { type: String, enum: ['everyone', 'followers', 'none'], default: 'everyone' },
+    stories: { type: String, enum: ['everyone', 'followers', 'close_friends'], default: 'everyone' },
+  },
+  notificationPrefs: {
+    likes: { type: Boolean, default: true }, comments: { type: Boolean, default: true },
+    followers: { type: Boolean, default: true }, messages: { type: Boolean, default: true },
+    rizz: { type: Boolean, default: true },
+  },
+  pushToken: String,
+  lastSeen: { type: Date, default: Date.now },
+  twoFactorEnabled: { type: Boolean, default: false },
+  resetTokenHash: String,
+  resetTokenExpires: Date,
+  tokenVersion: { type: Number, default: 0 }, // bump to logout all devices
+  loginActivity: [{ ip: String, device: String, at: { type: Date, default: Date.now } }],
+}, { timestamps: true });
+userSchema.index({ fullName: 'text', username: 'text' });
+module.exports = mongoose.model('User', userSchema);

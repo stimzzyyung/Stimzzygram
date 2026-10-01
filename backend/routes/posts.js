@@ -1,0 +1,22 @@
+const router = require('express').Router();
+const { body } = require('express-validator');
+const c = require('../controllers/postController');
+const { protect } = require('../middleware/auth');
+const { validate } = require('../middleware/error');
+const upload = require('../middleware/upload');
+
+router.use(protect);
+router.get('/', c.feed);
+router.post('/', upload.array('media', 10), c.create);
+router.get('/explore', c.explore);
+router.get('/:id', c.getPost);
+router.delete('/:id', c.deletePost);
+router.post('/:id/like', c.postLikes.like);
+router.delete('/:id/like', c.postLikes.unlike);
+router.post('/:id/save', c.save);
+router.delete('/:id/save', c.unsave);
+router.post('/:id/report', c.reportPost);
+router.get('/:id/comments', c.postComments.list);
+router.post('/:id/comments', [body('text').trim().notEmpty().withMessage('Comment cannot be empty.')], validate, c.postComments.add);
+router.delete('/:id/comments/:commentId', c.postComments.remove);
+module.exports = router;

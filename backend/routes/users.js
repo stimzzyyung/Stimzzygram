@@ -1,0 +1,23 @@
+const router = require('express').Router();
+const c = require('../controllers/userController');
+const { protect } = require('../middleware/auth');
+const upload = require('../middleware/upload');
+
+router.use(protect);
+router.put('/me', upload.single('avatar'), c.updateMe);
+router.get('/me/requests', c.requests);
+router.get('/me/blocked', c.blockedList);
+router.post('/requests/:id/accept', c.acceptRequest);
+router.post('/requests/:id/reject', c.rejectRequest);
+router.delete('/followers/:id', c.removeFollower);
+router.get('/:id', c.getUser);
+router.get('/:id/content', c.userContent);
+router.post('/:id/follow', c.follow);
+router.delete('/:id/follow', c.unfollow);
+router.get('/:id/followers', c.followers);
+router.get('/:id/following', c.following);
+router.post('/:id/block', c.block);
+router.delete('/:id/block', c.unblock);
+router.post('/:id/report', c.report);
+router.post('/:id/close-friends', c.closeFriends);
+module.exports = router;
