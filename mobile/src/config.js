@@ -1,2 +1,2 @@
-export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:5000';
+export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://stimzzygram.onrender.com';
 export const BASE = `${API_URL}/api`;

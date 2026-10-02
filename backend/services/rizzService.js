@@ -1,6 +1,6 @@
 /**
  * Rizz Bot AI service. The provider is configurable via env vars and the key never leaves the server.
- * AI_PROVIDER=anthropic | openai (OpenAI-compatible)   AI_API_KEY   AI_MODEL   AI_BASE_URL
+ * AI_PROVIDER=gemini | anthropic | openai (OpenAI-compatible)   AI_API_KEY   AI_MODEL   AI_BASE_URL
  */
 const STYLES = {
   chill: 'relaxed, easygoing and low-pressure', cute: 'sweet, wholesome and a little shy',
@@ -45,7 +45,25 @@ exports.generate = async ({ message = '', style = 'smooth', context = '', catego
   const hist = history.slice(-6).map((h) => ({ role: h.role === 'bot' ? 'assistant' : 'user', content: h.content }));
 
   let raw;
-  if (provider === 'anthropic') {
+  if (provider === 'gemini') {
+    const contents = hist.map((h) => ({ role: h.role === 'assistant' ? 'model' : 'user', parts: [{ text: h.content }] }));
+    const parts = [{ text: userText }];
+    if (image) parts.push({ inlineData: { mimeType: image.mediaType || 'image/jpeg', data: image.data } });
+    contents.push({ role: 'user', parts });
+    const model = process.env.AI_MODEL || 'gemini-2.5-flash';
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(process.env.AI_API_KEY)}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: SYSTEM }] },
+        contents,
+        generationConfig: { maxOutputTokens: 600, responseMimeType: 'application/json' },
+      }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw Object.assign(new Error('AI provider error'), { status: 502, detail: data });
+    raw = data.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('') || '';
+  } else if (provider === 'anthropic') {
     const content = [];
     if (image) content.push({ type: 'image', source: { type: 'base64', media_type: image.mediaType || 'image/jpeg', data: image.data } });
     content.push({ type: 'text', text: userText });
