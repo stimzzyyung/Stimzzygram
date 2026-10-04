@@ -1,6 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Dimensions, Share, ActivityIndicator } from 'react-native';
-import { Video, ResizeMode } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -9,6 +8,7 @@ import { api } from '../services/api';
 import { Avatar, VerifiedBadge, ErrorState, Empty } from '../components/UI';
 import { useAuth } from '../context/AuthContext';
 import { compact } from '../utils/format';
+import InlineVideoPlayer from '../components/InlineVideoPlayer';
 
 const { height: SH, width: SW } = Dimensions.get('window');
 
@@ -60,12 +60,12 @@ export default function VibesScreen({ navigation }) {
         ListEmptyComponent={<View style={{ height: SH, justifyContent: 'center' }}><Empty icon="🔥" text="No vibes yet. Tap + and post the first one!" /></View>}
         renderItem={({ item: v, index }) => (
           <View style={{ height: H + insets.top, width: SW }}>
-            <Video source={{ uri: v.url }} style={{ flex: 1 }} resizeMode={ResizeMode.COVER} isLooping shouldPlay={focused && index === active} progressUpdateIntervalMillis={1000} />
+            <InlineVideoPlayer source={{ uri: v.url }} style={{ flex: 1 }} enabled={focused && index === active} autoPlay />
             <LinearGradient colors={['transparent', 'rgba(11,16,32,0.85)']} style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 240 }} />
             <View style={{ position: 'absolute', right: 12, bottom: 30, alignItems: 'center' }}>
               <TouchableOpacity onPress={() => like(v)} style={{ alignItems: 'center', marginBottom: 20 }}><Ionicons name={v.liked ? 'heart' : 'heart-outline'} size={34} color={v.liked ? '#F43F5E' : '#fff'} /><Text style={{ color: '#fff', fontWeight: '700' }}>{compact(v.likesCount)}</Text></TouchableOpacity>
               <TouchableOpacity onPress={() => navigation.navigate('Comments', { id: v._id, kind: 'videos' })} style={{ alignItems: 'center', marginBottom: 20 }}><Ionicons name="chatbubble-outline" size={31} color="#fff" /><Text style={{ color: '#fff', fontWeight: '700' }}>{compact(v.commentsCount)}</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => Share.share({ message: `Watch @${v.author.username}'s vibe on Stimzzy'sgram 🔥` })}><Ionicons name="paper-plane-outline" size={30} color="#fff" /></TouchableOpacity>
+              <TouchableOpacity onPress={() => Share.share({ message: `Watch @${v.author.username}'s vibe on StimzzyVibe 🔥` })}><Ionicons name="paper-plane-outline" size={30} color="#fff" /></TouchableOpacity>
             </View>
             <View style={{ position: 'absolute', left: 14, bottom: 30, right: 80 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>

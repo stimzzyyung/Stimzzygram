@@ -26,7 +26,7 @@ exports.getUser = asyncHandler(async (req, res) => {
   ]);
   const isMe = String(u._id) === me;
   const o = u.toObject();
-  ['password', 'email', 'phone', 'blocked', 'closeFriends', 'pushToken', 'loginActivity', 'resetTokenHash', 'dateOfBirth'].forEach((k) => !isMe && delete o[k]);
+  ['password', 'email', 'phone', 'country', 'language', 'isPremium', 'premiumRequested', 'blocked', 'closeFriends', 'pushToken', 'loginActivity', 'resetTokenHash', 'dateOfBirth'].forEach((k) => !isMe && delete o[k]);
   res.json({ success: true, user: { ...o, isMe, isFollowing: rel?.status === 'accepted', isPending: rel?.status === 'pending', followsMe: !!back,
     isBlocked: req.user.blocked.some((b) => String(b) === String(u._id)),
     canViewContent: isMe || !u.isPrivate || rel?.status === 'accepted' } });
@@ -42,6 +42,12 @@ exports.updateMe = asyncHandler(async (req, res) => {
   if (req.file) update.avatar = (await uploadFile(req.file, req)).url;
   const user = await User.findByIdAndUpdate(req.user._id, { $set: update }, { new: true, runValidators: true });
   res.json({ success: true, user });
+});
+
+exports.requestPremium = asyncHandler(async (req, res) => {
+  if (req.user.isPremium) throw httpError(400, 'Your account already has Premium.');
+  await User.findByIdAndUpdate(req.user._id, { premiumRequested: true });
+  res.json({ success: true, user: { isPremium: false, premiumRequested: true } });
 });
 
 exports.follow = asyncHandler(async (req, res) => {

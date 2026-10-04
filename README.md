@@ -33,6 +33,8 @@ npm run make-admin -- you@email.com
 ```
 Then open **Settings → Admin dashboard** in the app.
 
+Message translation also uses the configured server-side AI provider (`gemini`, `anthropic`, or `openai`) and requires `AI_API_KEY`. Message text is sent to that provider only when a user requests a translation.
+
 Password reset codes are printed in the backend console until you plug in an email provider (see `authController.forgotPassword`).
 
 ## 2. Run the mobile app
@@ -58,7 +60,7 @@ npx expo start
 | Profiles, tabs (posts/videos/saved/tagged), follow/unfollow, private-account requests, remove follower, block, report | `userController.js`, `ProfileScreen`, `ListScreens` |
 | Explore + search suggestions, trending, hashtag pages | `searchController.js`, `ExploreScreen` |
 | Vibes (vertical autoplay videos, like, comment, share, follow) | `videoController.js`, `VibesScreen` |
-| DMs (text/image/video/voice, reactions, reply, delete, typing, online, read receipts) | `messageController.js`, `services/socket.js`, `MessageScreens` |
+| DMs (text/image/video/voice, reactions, reply, delete, typing, online, read receipts, AI translation, scheduled text messages) | `messageController.js`, `services/scheduledMessages.js`, `MessageScreens` |
 | Notifications (in-app realtime + Expo push) | `services/notify.js`, `NotificationsScreen` |
 | Privacy + notification settings, dark/light/system theme | `SettingsScreens`, `ThemeContext` |
 | Rizz Bot (6 categories, 6 styles, screenshot analyzer, copy, regenerate, restyle, history, clear) | `services/rizzService.js`, `rizzController.js`, `RizzScreen` |

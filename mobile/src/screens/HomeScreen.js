@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,12 +9,15 @@ import { getSocket } from '../services/socket';
 import PostCard from '../components/PostCard';
 import StoryBar from '../components/StoryBar';
 import { PostSkeleton, ErrorState, Empty } from '../components/UI';
+import BrandWordmark from '../components/BrandWordmark';
+
+const POST_VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 60 };
 
 export function AppHeader({ navigation, unread = 0 }) {
   const { colors } = useTheme();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 52 }}>
-      <Text style={{ flex: 1, fontSize: 24, fontWeight: '900', color: colors.primary }}>Stimzzy's<Text style={{ color: colors.accent }}>gram</Text></Text>
+      <View style={{ flex: 1 }}><BrandWordmark size={23} color={colors.text} accentColor={colors.primary} /></View>
       <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={{ padding: 8 }}>
         <Ionicons name="heart-outline" size={26} color={colors.text} />
         {unread > 0 && <View style={{ position: 'absolute', top: 4, right: 4, backgroundColor: colors.danger, minWidth: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{unread}</Text></View>}
@@ -33,6 +36,7 @@ export default function HomeScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [more, setMore] = useState(false); const [done, setDone] = useState(false);
   const [unread, setUnread] = useState(0);
+  const [activePostId, setActivePostId] = useState(null);
 
   const load = useCallback(async (refresh) => {
     if (refresh) setRefreshing(true);
@@ -44,16 +48,23 @@ export default function HomeScreen({ navigation }) {
     setSL(false); setRefreshing(false);
   }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    load();
+    return () => setActivePostId(null);
+  }, [load]));
   useEffect(() => {
     const sock = getSocket(); if (!sock) return;
     const h = () => setUnread((u) => u + 1);
     sock.on('notification:new', h); return () => sock.off('notification:new', h);
   }, []);
 
+  const viewablePosts = useRef(({ viewableItems }) => {
+    const visibleVideoPost = viewableItems.find(({ item }) => item?.media?.some((media) => media.type === 'video'));
+    setActivePostId(visibleVideoPost?.item?._id || null);
+  }).current;
   const renderPost = useCallback(({ item }) => (
-    <PostCard post={item} navigation={navigation} onDeleted={(id) => setPosts((p) => p.filter((x) => x._id !== id))} />
-  ), [navigation]);
+    <PostCard post={item} navigation={navigation} isActive={item._id === activePostId} onDeleted={(id) => setPosts((p) => p.filter((x) => x._id !== id))} />
+  ), [activePostId, navigation]);
 
   const loadMore = async () => {
     if (more || done || !posts?.length) return;
@@ -69,6 +80,8 @@ export default function HomeScreen({ navigation }) {
         <FlatList data={posts || []} keyExtractor={(p) => p._id}
           ListHeaderComponent={<StoryBar groups={groups} loading={storiesLoading} navigation={navigation} />}
           renderItem={renderPost}
+          onViewableItemsChanged={viewablePosts}
+          viewabilityConfig={POST_VIEWABILITY_CONFIG}
           initialNumToRender={3} maxToRenderPerBatch={3} windowSize={7} updateCellsBatchingPeriod={50} removeClippedSubviews
           ListEmptyComponent={posts === null ? <View><PostSkeleton /><PostSkeleton /></View> : <Empty icon="👋" text={'Your feed is empty.\nFollow people from Explore or share your first post!'} />}
           ListFooterComponent={more ? <ActivityIndicator style={{ margin: 20 }} color={colors.primary} /> : null}

@@ -4,6 +4,8 @@ const { protect, adminOnly } = require('../middleware/auth');
 router.use(protect, adminOnly);
 router.get('/stats', c.stats);
 router.get('/users', c.users);
+router.get('/premium-requests', c.premiumRequests);
+router.put('/users/:id/premium', c.setPremium);
 router.put('/users/:id/suspend', c.suspend);
 router.put('/users/:id/verify', c.verify);
 router.delete('/users/:id', c.deleteUser);

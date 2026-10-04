@@ -12,5 +12,5 @@ const s = new Schema({
   reactions: [{ user: { type: Schema.Types.ObjectId, ref: 'User' }, emoji: String }],
   expiresAt: { type: Date, default: () => new Date(Date.now() + 24 * 3600 * 1000) },
 }, { timestamps: true });
-s.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // auto-delete after 24h
+s.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // auto-delete at each story's chosen expiry
 module.exports = mongoose.model('Story', s);

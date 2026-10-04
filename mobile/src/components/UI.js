@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Animated, Image, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Animated, Image, StyleSheet, Modal, FlatList } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -8,8 +8,13 @@ import { initials, thumb } from '../utils/format';
 
 export function GradientButton({ title, onPress, loading, disabled, style, small }) {
   return (
-    <TouchableOpacity activeOpacity={0.85} onPress={onPress} disabled={loading || disabled} style={[{ opacity: disabled ? 0.5 : 1 }, style]}>
-      <LinearGradient colors={gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[s.btn, small && s.btnSmall]}>
+    <TouchableOpacity activeOpacity={0.9} onPress={onPress} disabled={loading || disabled} style={[{ opacity: disabled ? 0.5 : 1 }, style]}>
+      <LinearGradient
+        colors={gradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[s.btn, small && s.btnSmall, s.primaryGlow]}
+      >
         {loading ? <ActivityIndicator color="#fff" /> : <Text style={[s.btnText, small && { fontSize: 14 }]}>{title}</Text>}
       </LinearGradient>
     </TouchableOpacity>
@@ -19,7 +24,20 @@ export function GradientButton({ title, onPress, loading, disabled, style, small
 export function OutlineButton({ title, onPress, style, danger, small }) {
   const { colors } = useTheme();
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={[s.btn, small && s.btnSmall, { borderWidth: 1.5, borderColor: danger ? colors.danger : colors.primary }, style]}>
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.8}
+      style={[
+        s.btn,
+        small && s.btnSmall,
+        {
+          borderWidth: 1.5,
+          borderColor: danger ? colors.danger : colors.primary,
+          backgroundColor: danger ? `${colors.danger}12` : `${colors.primary}14`,
+        },
+        style,
+      ]}
+    >
       <Text style={[s.btnText, { color: danger ? colors.danger : colors.primary }, small && { fontSize: 14 }]}>{title}</Text>
     </TouchableOpacity>
   );
@@ -35,6 +53,72 @@ export function Input({ icon, style, error, ...props }) {
       </View>
       {!!error && <Text style={{ color: colors.danger, fontSize: 12, marginTop: 4 }}>{error}</Text>}
     </View>
+  );
+}
+
+export function SelectInput({ icon, label, value, placeholder, options, onSelect }) {
+  const { colors } = useTheme();
+  const [visible, setVisible] = React.useState(false);
+  const [search, setSearch] = React.useState('');
+  const close = () => {
+    setVisible(false);
+    setSearch('');
+  };
+  const filteredOptions = options.filter((option) => option.toLowerCase().includes(search.trim().toLowerCase()));
+
+  return (
+    <>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${value || placeholder}`}
+        onPress={() => setVisible(true)}
+        style={[s.input, { minHeight: 50, marginBottom: 12, backgroundColor: colors.card, borderColor: colors.border }]}
+      >
+        <Ionicons name={icon} size={20} color={colors.muted} style={{ marginRight: 10 }} />
+        <Text style={{ flex: 1, color: value ? colors.text : colors.muted, fontSize: 16, paddingVertical: 12 }} numberOfLines={1}>
+          {value || placeholder}
+        </Text>
+        <Ionicons name="chevron-down" size={20} color={colors.muted} />
+      </TouchableOpacity>
+      <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
+        <View style={{ flex: 1, justifyContent: 'center', padding: 20, backgroundColor: 'rgba(0,0,0,0.6)' }}>
+          <View style={{ maxHeight: '85%', backgroundColor: colors.bg, borderRadius: 18, padding: 18 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <Text style={{ color: colors.text, fontSize: 19, fontWeight: '700' }}>Choose {label.toLowerCase()}</Text>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close list" onPress={close} hitSlop={10} style={{ padding: 4 }}>
+                <Ionicons name="close" size={24} color={colors.muted} />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              value={search}
+              onChangeText={setSearch}
+              placeholder={`Search ${label.toLowerCase()}`}
+              placeholderTextColor={colors.muted}
+              autoCapitalize="none"
+              style={{ backgroundColor: colors.card, color: colors.text, borderRadius: 10, padding: 12, marginBottom: 10 }}
+            />
+            <FlatList
+              data={filteredOptions}
+              keyExtractor={(option) => option}
+              keyboardShouldPersistTaps="handled"
+              style={{ flexGrow: 0, maxHeight: 480 }}
+              ListEmptyComponent={<Text style={{ color: colors.muted, padding: 12 }}>No matches found.</Text>}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: value === item }}
+                  onPress={() => { onSelect(item); close(); }}
+                  style={{ minHeight: 46, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }}
+                >
+                  <Text style={{ color: colors.text, fontSize: 16 }}>{item}</Text>
+                  {value === item && <Ionicons name="checkmark" size={20} color={colors.primary} />}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -113,6 +197,13 @@ export function Header({ title, navigation, right }) {
 const s = StyleSheet.create({
   btn: { minHeight: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
   btnSmall: { minHeight: 44, borderRadius: 12, paddingHorizontal: 16 },
+  primaryGlow: {
+    shadowColor: '#D4AF6A',
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+  },
   btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   input: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, borderWidth: 1, paddingHorizontal: 14 },
 });

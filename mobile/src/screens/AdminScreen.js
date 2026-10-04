@@ -6,19 +6,21 @@ import { api } from '../services/api';
 import useAsync from '../hooks/useAsync';
 import { Header, Loading, ErrorState, Empty, OutlineButton, Avatar } from '../components/UI';
 
-const TABS = ['stats', 'reports', 'users', 'hashtags'];
+const TABS = ['stats', 'reports', 'premium', 'users', 'hashtags'];
 
 export default function AdminScreen({ navigation }) {
   const { colors } = useTheme();
   const [tab, setTab] = useState('stats'); const [q, setQ] = useState('');
-  const { data, loading, error, reload } = useAsync(() => api.get(`/admin/${tab}${tab === 'users' || tab === 'hashtags' ? `?q=${encodeURIComponent(q)}` : ''}`), [tab, q]);
+  const { data, loading, error, reload } = useAsync(() => api.get(tab === 'premium' ? '/admin/premium-requests' : `/admin/${tab}${tab === 'users' || tab === 'hashtags' ? `?q=${encodeURIComponent(q)}` : ''}`), [tab, q]);
   const act = async (fn) => { try { await fn(); reload(); } catch (e) { Alert.alert('Oops', e.message); } };
   const Card = ({ children }) => <View style={{ backgroundColor: colors.card, borderRadius: 14, padding: 12, marginBottom: 10 }}>{children}</View>;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
       <Header title="Admin dashboard" navigation={navigation} />
-      <View style={{ flexDirection: 'row' }}>{TABS.map((t) => <TouchableOpacity key={t} onPress={() => setTab(t)} style={{ flex: 1, padding: 12, borderBottomWidth: 2, borderColor: tab === t ? colors.primary : 'transparent' }}><Text style={{ textAlign: 'center', color: tab === t ? colors.primary : colors.muted, fontWeight: '700', textTransform: 'capitalize' }}>{t}</Text></TouchableOpacity>)}</View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        {TABS.map((t) => <TouchableOpacity key={t} onPress={() => setTab(t)} style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 2, borderColor: tab === t ? colors.primary : 'transparent' }}><Text style={{ textAlign: 'center', color: tab === t ? colors.primary : colors.muted, fontWeight: '700', textTransform: 'capitalize' }}>{t === 'premium' ? 'Premium requests' : t}</Text></TouchableOpacity>)}
+      </ScrollView>
       {(tab === 'users' || tab === 'hashtags') && <TextInput value={q} onChangeText={setQ} placeholder={`Search ${tab}...`} placeholderTextColor={colors.muted} autoCapitalize="none" style={{ margin: 12, backgroundColor: colors.card, color: colors.text, borderRadius: 12, padding: 12 }} />}
       {loading ? <Loading /> : error ? <ErrorState message={error} onRetry={reload} /> : (
         <ScrollView contentContainerStyle={{ padding: 12 }}>
@@ -35,6 +37,19 @@ export default function AdminScreen({ navigation }) {
               {r.targetType !== 'user' && <OutlineButton small danger title="Remove content" onPress={() => act(() => api.put(`/admin/reports/${r._id}`, { action: 'remove_content' }))} style={{ marginRight: 8 }} />}
               <OutlineButton small title="Dismiss" onPress={() => act(() => api.put(`/admin/reports/${r._id}`, { action: 'dismiss' }))} />
             </View></Card>) : <Empty icon="✅" text="No open reports." />)}
+            {tab === 'premium' && (data.users.length ? data.users.map((u) => <Card key={u._id}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Avatar user={u} size={40} />
+                <View style={{ marginLeft: 10, flex: 1 }}>
+                  <Text style={{ color: colors.text, fontWeight: '700' }}>{u.username}</Text>
+                  <Text style={{ color: colors.muted, fontSize: 12 }}>{u.email}</Text>
+                </View>
+              </View>
+              <View style={{ flexDirection: 'row', marginTop: 10 }}>
+                <OutlineButton small title="Approve Premium" onPress={() => act(() => api.put(`/admin/users/${u._id}/premium`, { premium: true }))} style={{ marginRight: 8 }} />
+                <OutlineButton small danger title="Decline" onPress={() => act(() => api.put(`/admin/users/${u._id}/premium`, { premium: false }))} />
+              </View>
+            </Card>) : <Empty icon="⭐" text="No Premium requests to review." />)}
           {tab === 'users' && data.users.map((u) => <Card key={u._id}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}><Avatar user={u} size={40} /><View style={{ marginLeft: 10, flex: 1 }}><Text style={{ color: colors.text, fontWeight: '700' }}>{u.username} {u.isVerified ? '✔️' : ''} {u.isSuspended ? '⛔' : ''}</Text><Text style={{ color: colors.muted, fontSize: 12 }}>{u.email}</Text></View></View>
             <View style={{ flexDirection: 'row', marginTop: 10 }}>

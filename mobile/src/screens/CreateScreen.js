@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, Image, TouchableOpacity, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import { upload, fileFromAsset, api } from '../services/api';
 import { GradientButton, Avatar } from '../components/UI';
 import { FILTERS } from '../utils/format';
@@ -11,31 +13,57 @@ import { FILTERS } from '../utils/format';
 const MODES = [{ k: 'post', label: 'Post' }, { k: 'story', label: 'Story' }, { k: 'vibe', label: 'Vibe' }];
 const VIS = [{ k: 'everyone', label: '🌍 Everyone' }, { k: 'followers', label: '👥 Followers' }, { k: 'close_friends', label: '💚 Close friends' }];
 const STICKERS = ['🔥', '😂', '😍', '💜', '✨', '🎉', '😎', '🚀', '💀', '🥹'];
+const STORY_DURATIONS = [{ hours: 24, label: '24 hours' }, { hours: 48, label: '2 days' }, { hours: 72, label: '3 days' }, { hours: 168, label: '7 days' }];
 
 export default function CreateScreen({ navigation, route }) {
   const { colors } = useTheme();
+  const { user, refreshUser } = useAuth();
   const [mode, setMode] = useState(route.params?.mode || 'post');
   const [assets, setAssets] = useState([]);
   const [caption, setCaption] = useState(''); const [location, setLocation] = useState('');
   const [filter, setFilter] = useState('none'); const [visibility, setVisibility] = useState('everyone');
   const [storyText, setStoryText] = useState(''); const [stickers, setStickers] = useState([]); const [music, setMusic] = useState('');
+  const [storyDuration, setStoryDuration] = useState(24);
   const [tagQ, setTagQ] = useState(''); const [tagSug, setTagSug] = useState([]); const [tags, setTags] = useState([]);
   const [progress, setProgress] = useState(null);
 
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    refreshUser()
+      .then((latestUser) => { if (active && !latestUser.isPremium) setStoryDuration(24); })
+      .catch((e) => { if (active) Alert.alert('Could not refresh account status', e.message); });
+    return () => { active = false; };
+  }, [refreshUser]));
+
   const types = mode === 'vibe' ? ImagePicker.MediaTypeOptions.Videos : ImagePicker.MediaTypeOptions.All;
   const gallery = async () => {
-    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: types, allowsMultipleSelection: mode === 'post', selectionLimit: 10, quality: 0.8, allowsEditing: mode !== 'post' });
-    if (!r.canceled) setAssets(r.assets);
+    try {
+      const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: types, allowsMultipleSelection: mode === 'post', selectionLimit: 10, quality: 0.8, allowsEditing: mode !== 'post' });
+      if (r.canceled || !r.assets?.length) return;
+      setAssets(r.assets);
+    } catch (error) {
+      Alert.alert('Gallery failed', error?.message || 'Please try again.');
+    }
   };
   const cropOne = async () => { // crop image (single)
-    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 0.8 });
-    if (!r.canceled) setAssets(r.assets);
+    try {
+      const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 0.8 });
+      if (r.canceled || !r.assets?.length) return;
+      setAssets(r.assets);
+    } catch (error) {
+      Alert.alert('Image picker failed', error?.message || 'Please try again.');
+    }
   };
   const camera = async () => {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) return Alert.alert('Camera permission needed', 'Enable camera access in your settings.');
-    const r = await ImagePicker.launchCameraAsync({ mediaTypes: types, quality: 0.8, videoMaxDuration: 60 });
-    if (!r.canceled) setAssets(r.assets);
+    try {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) return Alert.alert('Camera permission needed', 'Enable camera access in your settings.');
+      const r = await ImagePicker.launchCameraAsync({ mediaTypes: types, quality: 0.8, videoMaxDuration: 60 });
+      if (r.canceled || !r.assets?.length) return;
+      setAssets(r.assets);
+    } catch (error) {
+      Alert.alert('Camera failed', error?.message || 'Please try again.');
+    }
   };
   const searchTags = async (t) => {
     setTagQ(t);
@@ -43,7 +71,7 @@ export default function CreateScreen({ navigation, route }) {
     try { setTagSug((await api.get(`/search/suggest?q=${encodeURIComponent(t)}`)).users); } catch {}
   };
 
-  const reset = () => { setAssets([]); setCaption(''); setLocation(''); setFilter('none'); setStoryText(''); setStickers([]); setMusic(''); setTags([]); setProgress(null); };
+  const reset = () => { setAssets([]); setCaption(''); setLocation(''); setFilter('none'); setStoryText(''); setStickers([]); setMusic(''); setTags([]); setProgress(null); setStoryDuration(24); };
   const submit = async () => {
     if (!assets.length) return Alert.alert('Pick something first', 'Choose a photo or video.');
     const form = new FormData();
@@ -55,6 +83,7 @@ export default function CreateScreen({ navigation, route }) {
       tags.forEach((t) => form.append('tags', t._id));
     } else if (mode === 'story') {
       path = '/stories'; form.append('media', fileFromAsset(assets[0], 'story')); form.append('text', storyText); form.append('visibility', visibility);
+      form.append('durationHours', String(storyDuration));
       stickers.forEach((s) => form.append('stickers', s)); if (music) form.append('musicTitle', music);
     } else {
       path = '/videos'; form.append('video', fileFromAsset(assets[0], 'vibe')); form.append('caption', caption); if (music) form.append('audioTitle', music);
@@ -102,6 +131,20 @@ export default function CreateScreen({ navigation, route }) {
 
           {mode === 'story' ? (
             <View style={{ marginTop: 16 }}>
+              <Text style={{ color: colors.muted, marginBottom: 8 }}>Story duration</Text>
+              {user.isPremium ? (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 12 }}>
+                  {STORY_DURATIONS.map((duration) => (
+                    <TouchableOpacity key={duration.hours} onPress={() => setStoryDuration(duration.hours)} style={chip(storyDuration === duration.hours)}>
+                      <Text style={chipText(storyDuration === duration.hours)}>{duration.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : (
+                <Text style={{ color: colors.text, backgroundColor: colors.card, borderRadius: 12, padding: 12, marginBottom: 12 }}>
+                  24 hours · Premium users can choose stories up to 7 days.
+                </Text>
+              )}
               <TextInput placeholder="Add text to your story..." placeholderTextColor={colors.muted} value={storyText} onChangeText={setStoryText} style={{ backgroundColor: colors.card, color: colors.text, borderRadius: 12, padding: 12 }} maxLength={80} />
               <Text style={{ color: colors.muted, marginTop: 12, marginBottom: 6 }}>Stickers & emojis</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>{STICKERS.map((s) => <TouchableOpacity key={s} onPress={() => setStickers((x) => x.includes(s) ? x.filter((y) => y !== s) : [...x, s])} style={{ padding: 8, margin: 3, borderRadius: 12, backgroundColor: stickers.includes(s) ? colors.primary : colors.card }}><Text style={{ fontSize: 24 }}>{s}</Text></TouchableOpacity>)}</View>

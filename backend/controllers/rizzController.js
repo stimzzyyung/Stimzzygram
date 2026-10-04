@@ -15,8 +15,7 @@ exports.chat = asyncHandler(async (req, res) => {
   try {
     responses = await generate({ message, style, context, category, image, history: history.reverse().map((h) => ({ role: h.role, content: h.role === 'bot' ? h.responses.join(' | ') : h.content })) });
   } catch (e) {
-    if (e.detail) console.error('AI error:', JSON.stringify(e.detail));
-    throw httpError(e.status === 503 ? 503 : 502, '🤖 Rizz Bot is unavailable right now. Please try again in a moment.');
+    throw httpError([502, 503, 504].includes(e.status) ? e.status : 502, '🤖 Rizz Bot is unavailable right now. Please try again in a moment.');
   }
   await RizzMessage.create([
     { conversation: convo._id, role: 'user', content: message || context || '📷 Screenshot', style, category },

@@ -60,8 +60,23 @@ export const api = {
 
 /** Turn an expo-image-picker asset into a FormData file. */
 export const fileFromAsset = (asset, fallbackName = 'upload') => {
-  const uri = asset.uri;
-  const ext = (uri.split('.').pop() || 'jpg').split('?')[0].toLowerCase();
-  const isVideo = asset.type === 'video' || ['mp4', 'mov', 'm4v'].includes(ext);
-  return { uri, name: `${fallbackName}.${ext}`, type: isVideo ? `video/${ext === 'mov' ? 'quicktime' : 'mp4'}` : `image/${ext === 'jpg' ? 'jpeg' : ext}` };
+  const uri = asset?.uri;
+  if (!uri) throw new Error('The selected file has no usable URI. Please choose it again.');
+
+  const mimeType = asset.mimeType?.toLowerCase();
+  const uriName = uri.split(/[?#]/, 1)[0].split('/').pop() || '';
+  const sourceName = asset.fileName || uriName;
+  const nameExt = asset.fileName?.match(/\.([a-z0-9]{2,5})$/i)?.[1]?.toLowerCase();
+  const mimeExt = mimeType?.split('/')[1]?.split(';')[0];
+  const uriExt = uriName.match(/\.([a-z0-9]{2,5})$/i)?.[1]?.toLowerCase();
+  const isVideo = asset.type === 'video' || mimeType?.startsWith('video/') || ['mp4', 'mov', 'm4v', '3gp'].includes(nameExt || uriExt);
+  const ext = nameExt || (mimeExt === 'jpeg' ? 'jpg' : mimeExt) || uriExt || (isVideo ? 'mp4' : 'jpg');
+  const name = sourceName.includes('.') ? sourceName : `${fallbackName}.${ext}`;
+  const type = mimeType?.startsWith(isVideo ? 'video/' : 'image/')
+    ? mimeType
+    : isVideo
+      ? `video/${ext === 'mov' ? 'quicktime' : ext === 'm4v' ? 'x-m4v' : 'mp4'}`
+      : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+
+  return { uri, name, type };
 };

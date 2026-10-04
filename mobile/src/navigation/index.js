@@ -11,7 +11,7 @@ import { useAuth } from '../context/AuthContext';
 import { Loading } from '../components/UI';
 import { gradient } from '../theme';
 
-import { WelcomeScreen, LoginScreen, RegisterScreen, ForgotPasswordScreen } from '../screens/AuthScreens';
+import { WelcomeScreen, LoginScreen, RegisterScreen, VerifyEmailScreen, ForgotPasswordScreen } from '../screens/AuthScreens';
 import HomeScreen from '../screens/HomeScreen';
 import ExploreScreen from '../screens/ExploreScreen';
 import CreateScreen from '../screens/CreateScreen';
@@ -85,6 +85,7 @@ export default function Navigation() {
             <Stack.Screen name="Welcome" component={WelcomeScreen} />
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
+            <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
             <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
           </>
         ) : (

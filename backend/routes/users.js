@@ -5,6 +5,7 @@ const upload = require('../middleware/upload');
 
 router.use(protect);
 router.put('/me', upload.single('avatar'), c.updateMe);
+router.post('/me/premium-request', c.requestPremium);
 router.get('/me/requests', c.requests);
 router.get('/me/blocked', c.blockedList);
 router.post('/requests/:id/accept', c.acceptRequest);

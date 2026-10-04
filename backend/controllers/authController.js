@@ -4,20 +4,79 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const { asyncHandler, httpError } = require('../middleware/error');
 const { uploadFile } = require('../services/upload');
+const { sendVerificationCode } = require('../services/email');
 
 const sign = (u) => jwt.sign({ id: u._id, v: u.tokenVersion }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '30d' });
-const clean = (u) => { const o = u.toObject(); delete o.password; delete o.resetTokenHash; delete o.resetTokenExpires; return o; };
+const clean = (u) => {
+  const o = u.toObject();
+  delete o.password;
+  delete o.resetTokenHash;
+  delete o.resetTokenExpires;
+  delete o.emailVerificationHash;
+  delete o.emailVerificationExpires;
+  return o;
+};
 
 exports.register = asyncHandler(async (req, res) => {
-  const { fullName, username, email, password, dateOfBirth } = req.body;
-  if (await User.exists({ username: username.toLowerCase() })) throw httpError(409, 'Username already exists.');
-  if (await User.exists({ email: email.toLowerCase() })) throw httpError(409, 'An account with this email already exists.');
+  const { fullName, username, email, password, dateOfBirth, country, language } = req.body;
+  const normalizedEmail = email.toLowerCase().trim();
+  const normalizedUsername = username.toLowerCase().trim();
+  if (await User.exists({ username: normalizedUsername })) throw httpError(409, 'Username already exists.');
+  if (await User.exists({ email: normalizedEmail })) throw httpError(409, 'An account with this email already exists.');
   const age = (Date.now() - new Date(dateOfBirth)) / (365.25 * 24 * 3600 * 1000);
   if (age < 13) throw httpError(400, 'You must be at least 13 years old to join.');
+
+  const code = String(crypto.randomInt(100000, 1000000));
+  const emailVerificationHash = crypto.createHash('sha256').update(code).digest('hex');
+  const emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000);
   let avatar = '';
   if (req.file) avatar = (await uploadFile(req.file, req)).url;
-  const user = await User.create({ fullName, username, email, dateOfBirth, avatar, password: await bcrypt.hash(password, 12) });
-  res.status(201).json({ success: true, token: sign(user), user: clean(user) });
+  await sendVerificationCode(normalizedEmail, code);
+  await User.create({
+    fullName,
+    username: normalizedUsername,
+    email: normalizedEmail,
+    dateOfBirth,
+    country,
+    language,
+    avatar,
+    password: await bcrypt.hash(password, 12),
+    emailVerified: false,
+    emailVerificationHash,
+    emailVerificationExpires,
+  });
+  res.status(201).json({ success: true, email: normalizedEmail, message: 'Verification code sent to your email.' });
+});
+
+exports.verifyEmail = asyncHandler(async (req, res) => {
+  const email = req.body.email.toLowerCase().trim();
+  const code = req.body.code.trim();
+  const emailVerificationHash = crypto.createHash('sha256').update(code).digest('hex');
+  const user = await User.findOne({
+    email,
+    emailVerified: false,
+    emailVerificationHash,
+    emailVerificationExpires: { $gt: new Date() },
+  }).select('+emailVerificationHash +emailVerificationExpires');
+  if (!user) throw httpError(400, 'The verification code is invalid or expired.');
+  user.emailVerified = true;
+  user.emailVerificationHash = undefined;
+  user.emailVerificationExpires = undefined;
+  await user.save();
+  res.json({ success: true, token: sign(user), user: clean(user) });
+});
+
+exports.resendVerification = asyncHandler(async (req, res) => {
+  const email = req.body.email.toLowerCase().trim();
+  const user = await User.findOne({ email }).select('+emailVerificationHash +emailVerificationExpires');
+  if (user && !user.emailVerified) {
+    const code = String(crypto.randomInt(100000, 1000000));
+    await sendVerificationCode(email, code);
+    user.emailVerificationHash = crypto.createHash('sha256').update(code).digest('hex');
+    user.emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000);
+    await user.save();
+  }
+  res.json({ success: true, message: 'If the address belongs to an unverified account, a new code has been sent.' });
 });
 
 exports.login = asyncHandler(async (req, res) => {
@@ -25,6 +84,7 @@ exports.login = asyncHandler(async (req, res) => {
   const id = identifier.toLowerCase().trim();
   const user = await User.findOne({ $or: [{ email: id }, { username: id }] }).select('+password');
   if (!user || !(await bcrypt.compare(password, user.password))) throw httpError(401, 'Invalid email/username or password.');
+  if (user.emailVerified === false) throw httpError(403, 'Verify your email address before logging in.');
   if (user.isSuspended) throw httpError(403, 'This account is suspended.');
   user.loginActivity = [{ ip: req.ip, device: req.headers['user-agent'] }, ...user.loginActivity].slice(0, 20);
   user.lastSeen = new Date();

@@ -1,16 +1,16 @@
 import React, { useRef, useState } from 'react';
 import { View, Text, Image, TouchableOpacity, Animated, Alert, Share, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Video, ResizeMode } from 'expo-av';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { Avatar, VerifiedBadge } from './UI';
 import { timeAgo, FILTERS } from '../utils/format';
+import InlineVideoPlayer from './InlineVideoPlayer';
 
 const W = Dimensions.get('window').width;
 
-function PostCard({ post, navigation, onDeleted }) {
+function PostCard({ post, navigation, onDeleted, isActive = false }) {
   const { colors } = useTheme();
   const { user } = useAuth();
   const [p, setP] = useState(post);
@@ -28,7 +28,7 @@ function PostCard({ post, navigation, onDeleted }) {
     const saved = !p.saved; setP((x) => ({ ...x, saved }));
     try { saved ? await api.post(`/posts/${p._id}/save`) : await api.del(`/posts/${p._id}/save`); } catch { setP((x) => ({ ...x, saved: !saved })); }
   };
-  const share = () => Share.share({ message: `Check out @${p.author.username}'s post on Stimzzy'sgram 🚀\n${p.caption || ''}` });
+  const share = () => Share.share({ message: `Check out @${p.author.username}'s post on StimzzyVibe 🚀\n${p.caption || ''}` });
   const more = () => {
     const mine = p.author._id === user._id;
     Alert.alert('Post options', undefined, [
@@ -58,10 +58,10 @@ function PostCard({ post, navigation, onDeleted }) {
       <View>
         <Animated.FlatList data={p.media} horizontal pagingEnabled showsHorizontalScrollIndicator={false} keyExtractor={(_, i) => String(i)}
           onMomentumScrollEnd={(e) => setPage(Math.round(e.nativeEvent.contentOffset.x / W))}
-          renderItem={({ item }) => (
+          renderItem={({ item, index }) => (
             <TouchableOpacity activeOpacity={1} onLongPress={toggleLike} delayLongPress={250}>
               {item.type === 'video'
-                ? <Video source={{ uri: item.url }} style={{ width: W, height: W * 1.15 }} useNativeControls resizeMode={ResizeMode.COVER} isLooping />
+                ? <InlineVideoPlayer source={{ uri: item.url }} style={{ width: W, height: W * 1.15 }} enabled={isActive && page === index} autoPlay />
                 : <Image source={{ uri: item.url }} style={{ width: W, height: W * 1.15, backgroundColor: colors.card }} />}
               {overlay && <View pointerEvents="none" style={{ position: 'absolute', inset: 0, top: 0, bottom: 0, left: 0, right: 0, backgroundColor: overlay }} />}
             </TouchableOpacity>
@@ -86,4 +86,4 @@ function PostCard({ post, navigation, onDeleted }) {
   );
 }
 
-export default React.memo(PostCard, (a, b) => a.post === b.post);
+export default React.memo(PostCard, (a, b) => a.post === b.post && a.isActive === b.isActive);

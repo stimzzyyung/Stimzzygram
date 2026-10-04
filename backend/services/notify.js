@@ -23,7 +23,7 @@ exports.notify = async ({ recipient, sender, type, post, text }) => {
         mention: 'mentioned you', story_reaction: 'reacted to your story' }[type];
       fetch('https://exp.host/--/api/v2/push/send', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: user.pushToken, title: "Stimzzy'sgram", body: `@${populated.sender?.username || 'someone'} ${body}` }),
+        body: JSON.stringify({ to: user.pushToken, title: 'StimzzyVibe', body: `@${populated.sender?.username || 'someone'} ${body}` }),
       }).catch(() => {});
     }
   } catch (e) { console.error('notify error', e.message); }

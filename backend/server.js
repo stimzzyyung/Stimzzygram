@@ -8,6 +8,7 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/db');
 const { init: initSocket } = require('./services/socket');
+const scheduledMessages = require('./services/scheduledMessages');
 const { notFound, errorHandler } = require('./middleware/error');
 
 for (const k of ['MONGO_URI', 'JWT_SECRET']) if (!process.env[k]) { console.error(`Missing env var ${k}. Copy .env.example to .env`); process.exit(1); }
@@ -28,7 +29,7 @@ app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, max: 1000, standardHeaders
 app.use('/api/auth/login', rateLimit({ windowMs: 15 * 60 * 1000, max: 20, message: { success: false, message: 'Too many login attempts. Try again later.' } }));
 app.use('/api/auth/forgot-password', rateLimit({ windowMs: 60 * 60 * 1000, max: 5, message: { success: false, message: 'Too many reset requests. Try again later.' } }));
 
-app.get('/api/health', (req, res) => res.json({ success: true, name: "Stimzzy'sgram API" }));
+app.get('/api/health', (req, res) => res.json({ success: true, name: 'StimzzyVibe API' }));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/posts', require('./routes/posts'));
@@ -46,5 +47,8 @@ app.use(notFound);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
-connectDB().then(() => server.listen(PORT, '0.0.0.0', () => console.log(`Stimzzy'sgram API running on port ${PORT}`)))
-  .catch((e) => { console.error('DB connection failed:', e.message); process.exit(1); });
+connectDB().then(() => {
+ scheduledMessages.start();
+ server.listen(PORT, '0.0.0.0', () => console.log(`StimzzyVibe API running on port ${PORT}`));
+})
+ .catch((e) => { console.error('DB connection failed:', e.message); process.exit(1); });

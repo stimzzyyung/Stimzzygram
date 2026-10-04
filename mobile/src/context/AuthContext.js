@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import { api, upload, setUnauthorizedHandler } from '../services/api';
 import { connectSocket, disconnectSocket } from '../services/socket';
 
@@ -11,7 +12,11 @@ async function registerPush() {
     const Notifications = require('expo-notifications');
     const { status } = await Notifications.requestPermissionsAsync();
     if (status !== 'granted') return;
-    const token = (await Notifications.getExpoPushTokenAsync()).data;
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId
+      || Constants.easConfig?.projectId
+      || Constants.expoConfig?.projectId;
+    if (!projectId) return;
+    const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
     await api.put('/users/me', { pushToken: token });
   } catch { /* push isn't available in every environment (e.g. some Expo Go versions) */ }
 }
@@ -44,8 +49,13 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (identifier, password) => { const d = await api.post('/auth/login', { identifier, password }); await start(d.token, d.user); };
-  const register = async (form) => { const d = await upload('POST', '/auth/register', form); await start(d.token, d.user); };
-  const refreshUser = async () => { const { user: u } = await api.get('/auth/me'); setUser(u); };
+  const register = async (form) => upload('POST', '/auth/register', form);
+  const verifyEmail = async (email, code) => {
+    const d = await api.post('/auth/verify-email', { email, code });
+    await start(d.token, d.user);
+  };
+  const resendVerification = (email) => api.post('/auth/resend-verification', { email });
+  const refreshUser = useCallback(async () => { const { user: u } = await api.get('/auth/me'); setUser(u); return u; }, []);
 
-  return <Ctx.Provider value={{ user, setUser, booting, login, register, logout, refreshUser }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, setUser, booting, login, register, verifyEmail, resendVerification, logout, refreshUser }}>{children}</Ctx.Provider>;
 }

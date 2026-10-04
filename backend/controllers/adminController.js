@@ -31,6 +31,20 @@ exports.verify = asyncHandler(async (req, res) => {
   const u = await User.findByIdAndUpdate(req.params.id, { isVerified: !!req.body.verified }, { new: true });
   res.json({ success: true, user: u });
 });
+exports.premiumRequests = asyncHandler(async (req, res) => {
+  const users = await User.find({ premiumRequested: true }).sort('createdAt').limit(100)
+    .select('username fullName email avatar premiumRequested isPremium createdAt');
+  res.json({ success: true, users });
+});
+exports.setPremium = asyncHandler(async (req, res) => {
+  if (typeof req.body.premium !== 'boolean') throw httpError(400, 'Premium status must be true or false.');
+  const user = await User.findByIdAndUpdate(req.params.id, {
+    isPremium: req.body.premium,
+    premiumRequested: false,
+  }, { new: true }).select('_id isPremium premiumRequested');
+  if (!user) throw httpError(404, 'User not found.');
+  res.json({ success: true, user });
+});
 exports.deleteUser = asyncHandler(async (req, res) => {
   if (String(req.params.id) === String(req.user._id)) throw httpError(400, "You can't delete yourself.");
   const posts = await Post.find({ author: req.params.id }).select('_id');

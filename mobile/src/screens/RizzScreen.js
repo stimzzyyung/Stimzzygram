@@ -51,7 +51,7 @@ export default function RizzScreen({ navigation }) {
     (async () => {
       try {
         const h = await api.get('/rizz/history');
-        if (h.conversations?.length) { const c = h.conversations[0]; const m = await api.get(`/rizz/history?conversationId=${c._id}`); if (m.messages.length) { setMessages(m.messages); setConvoId(c._id); setShowHome(false); } }
+        if (h.conversations?.length) { const c = h.conversations[0]; const m = await api.get(`/rizz/history?conversationId=${c._id}`); if (Array.isArray(m.messages) && m.messages.length) { setMessages(m.messages); setConvoId(c._id); setShowHome(false); } }
       } catch {}
       setHL(false);
     })();
@@ -62,9 +62,13 @@ export default function RizzScreen({ navigation }) {
     try {
       const r = await api.post('/rizz/chat', { ...payload, conversationId: convoId });
       setConvoId(r.conversationId);
-      setMessages((m) => [...m, { role: 'bot', responses: r.responses, style: payload.style, category: payload.category }]);
-    } catch (e) { setMessages((m) => [...m, { role: 'error', content: e.message.includes('Rizz') || e.message.includes('unavailable') ? e.message : `🤖 Rizz Bot is unavailable.\n${e.message}` }]); }
-    setLoading(false);
+      setMessages((m) => [...m, { role: 'bot', responses: Array.isArray(r.responses) ? r.responses : [], style: payload.style, category: payload.category }]);
+    } catch (error) {
+      const message = error?.message || 'Please try again.';
+      setMessages((m) => [...m, { role: 'error', content: message.includes('Rizz') || message.includes('unavailable') ? message : `🤖 Rizz Bot is unavailable.\n${message}` }]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const send = () => {
@@ -74,11 +78,20 @@ export default function RizzScreen({ navigation }) {
   };
   const regenerate = (styleOverride) => { if (!last.current || loading) return; setMessages((m) => m.filter((x, i) => !(i === m.length - 1 && x.role === 'bot'))); ask({ ...last.current, style: styleOverride || last.current.style }); };
   const analyze = async () => {
-    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, base64: true, quality: 0.5 });
-    if (r.canceled) return;
-    const a = r.assets[0];
-    setMessages((m) => [...m, { role: 'user', content: '📷 Screenshot uploaded' }]);
-    ask({ message: '', style, category: 'screenshot', image: { data: a.base64, mediaType: a.mimeType || 'image/jpeg' } });
+    try {
+      const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, base64: true, quality: 0.5 });
+      if (r.canceled || !r.assets?.length) return;
+      const asset = r.assets[0];
+      if (!asset.base64) {
+        Alert.alert('Screenshot not ready', 'Please select another image and try again.');
+        return;
+      }
+      setMessages((m) => [...m, { role: 'user', content: '📷 Screenshot uploaded' }]);
+      ask({ message: '', style, category: 'screenshot', image: { data: asset.base64, mediaType: asset.mimeType || 'image/jpeg' } });
+    } catch (error) {
+      console.warn('Rizz screenshot selection failed', error);
+      Alert.alert('Image selection failed', error?.message || 'Please try again.');
+    }
   };
   const clear = () => Alert.alert('Clear chat?', 'This deletes your Rizz Bot history.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Clear', style: 'destructive', onPress: async () => { try { await api.del('/rizz/history'); } catch {} setMessages([]); setConvoId(null); setShowHome(true); last.current = null; } }]);
   const pickCat = (c) => { setCategory(c.k); if (c.k === 'screenshot') analyze(); else { setShowHome(false); } };
@@ -123,7 +136,7 @@ export default function RizzScreen({ navigation }) {
             ) : (
               <View style={{ alignSelf: 'flex-start', maxWidth: '92%', marginBottom: 14 }}>
                 <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 2 }}>🤖 Rizz Bot · try this:</Text>
-                {m.responses.map((r, i) => <ResponseCard key={i} text={r} index={i} colors={colors} />)}
+                {(Array.isArray(m.responses) ? m.responses : []).map((r, i) => <ResponseCard key={i} text={r} index={i} colors={colors} />)}
                 {index === messages.length - 1 && !loading && <View style={{ marginTop: 10 }}>
                   <TouchableOpacity onPress={() => regenerate()} style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingVertical: 6 }}><Ionicons name="refresh" size={18} color={colors.primary} /><Text style={{ color: colors.primary, fontWeight: '700', marginLeft: 4 }}>Regenerate</Text></TouchableOpacity>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>{STYLES.filter((s) => s.k !== m.style).slice(0, 5).map((s) => <TouchableOpacity key={s.k} onPress={() => { setStyle(s.k); regenerate(s.k); }} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, marginRight: 6, borderWidth: 1, borderColor: colors.border }}><Text style={{ color: colors.text, fontSize: 12 }}>Make it {s.l}</Text></TouchableOpacity>)}</ScrollView>

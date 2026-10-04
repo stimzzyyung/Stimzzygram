@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, Switch, TouchableOpacity, Alert, Image, KeyboardAvoidingView, Platform, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -10,8 +12,36 @@ import { Header, Input, GradientButton, Avatar } from '../components/UI';
 
 export function SettingsScreen({ navigation }) {
   const { colors, mode, setMode } = useTheme();
-  const { user, setUser, logout } = useAuth();
+  const { user, setUser, logout, refreshUser } = useAuth();
   const patch = async (body) => { try { const r = await api.put('/users/me', body); setUser(r.user); } catch (e) { Alert.alert('Could not save', e.message); } };
+  const requestPremium = async () => {
+    try {
+      const result = await api.post('/users/me/premium-request', {});
+      setUser((current) => ({ ...current, ...result.user }));
+      Alert.alert('Request sent', 'An admin will review your Premium request.');
+    } catch (e) {
+      Alert.alert('Could not request Premium', e.message);
+    }
+  };
+  const [translatorEnabled, setTranslatorEnabled] = useState(false);
+  const setTranslator = async (enabled) => {
+    try {
+      await AsyncStorage.setItem('translatorEnabled', enabled ? 'true' : 'false');
+      setTranslatorEnabled(enabled);
+    } catch (e) {
+      Alert.alert('Could not save', e.message || 'The translator setting could not be saved.');
+    }
+  };
+  React.useEffect(() => {
+    AsyncStorage.getItem('translatorEnabled')
+      .then((value) => setTranslatorEnabled(value === 'true'))
+      .catch((e) => Alert.alert('Could not load setting', e.message || 'The translator setting could not be loaded.'));
+  }, []);
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    refreshUser().catch((e) => { if (active) Alert.alert('Could not refresh account status', e.message); });
+    return () => { active = false; };
+  }, [refreshUser]));
   const cycle = (key, current) => { const order = ['everyone', 'followers', 'none']; return order[(order.indexOf(current) + 1) % 3]; };
 
   const Section = ({ title, children }) => <View style={{ marginTop: 22 }}><Text style={{ color: colors.muted, fontWeight: '800', fontSize: 12, marginBottom: 6, paddingHorizontal: 16 }}>{title.toUpperCase()}</Text>{children}</View>;
@@ -34,11 +64,22 @@ export function SettingsScreen({ navigation }) {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
       <Header title="Settings" navigation={navigation} />
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+        <Section title="Translator">
+          <Sw label="Enable message translator" value={translatorEnabled} onChange={setTranslator} />
+        </Section>
         <Section title="Account">
           <Row icon="person-outline" label="Edit profile" onPress={() => navigation.navigate('EditProfile')} />
           <Row icon="key-outline" label="Change password" onPress={changePassword} />
           <Row icon="mail-outline" label="Email" value={user.email} />
           <Row icon="call-outline" label="Phone" value={user.phone || 'Add'} onPress={() => navigation.navigate('EditProfile')} />
+        </Section>
+        <Section title="Premium">
+          <Row
+            icon="star-outline"
+            label="Longer-lasting stories"
+            value={user.isPremium ? 'Active · up to 7 days' : user.premiumRequested ? 'Request pending' : 'Request Premium'}
+            onPress={!user.isPremium && !user.premiumRequested ? requestPremium : undefined}
+          />
         </Section>
         <Section title="Privacy">
           <Sw label="Private account" value={user.isPrivate} onChange={(v) => patch({ isPrivate: v })} />
@@ -61,7 +102,7 @@ export function SettingsScreen({ navigation }) {
         </Section>
         <Section title="Other">
           <Row icon="help-circle-outline" label="Help" onPress={() => Alert.alert('Help', 'Email support@stimzzysgram.app')} />
-          <Row icon="information-circle-outline" label="About Stimzzy'sgram" onPress={() => Alert.alert("Stimzzy'sgram", 'Connect. Share. Vibe. 🚀\nVersion 1.0.0')} />
+          <Row icon="information-circle-outline" label="About StimzzyVibe" onPress={() => Alert.alert('StimzzyVibe', 'Connect. Share. Vibe. 🚀\nVersion 1.0.0')} />
           <Row icon="document-text-outline" label="Terms" onPress={() => Alert.alert('Terms', 'Add your Terms of Service URL here.')} />
           <Row icon="shield-checkmark-outline" label="Privacy Policy" onPress={() => Alert.alert('Privacy Policy', 'Add your Privacy Policy URL here.')} />
           {user.role === 'admin' && <Row icon="speedometer-outline" label="Admin dashboard" onPress={() => navigation.navigate('Admin')} />}
@@ -76,12 +117,35 @@ export function EditProfileScreen({ navigation }) {
   const { colors } = useTheme(); const { user, setUser } = useAuth();
   const [f, setF] = useState({ fullName: user.fullName, username: user.username, bio: user.bio, website: user.website, phone: user.phone });
   const [avatar, setAvatar] = useState(null); const [saving, setSaving] = useState(false);
-  const pick = async () => { const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.7 }); if (!r.canceled) setAvatar(r.assets[0]); };
+  const pick = async () => {
+    try {
+      const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.7 });
+      if (r.canceled || !r.assets?.length) return;
+      setAvatar(r.assets[0]);
+    } catch (error) {
+      Alert.alert('Image picker failed', error?.message || 'Please try again.');
+    }
+  };
   const save = async () => {
+    if (saving) return;
+    if (avatar && !avatar.uri) {
+      Alert.alert('Photo unavailable', 'Please choose the profile photo again.');
+      return;
+    }
     setSaving(true);
-    const form = new FormData(); Object.entries(f).forEach(([k, v]) => form.append(k, v || '')); if (avatar) form.append('avatar', fileFromAsset(avatar, 'avatar'));
-    try { const r = await upload('PUT', '/users/me', form); setUser(r.user); navigation.goBack(); } catch (e) { Alert.alert('Could not save', e.message); }
-    setSaving(false);
+    try {
+      const form = new FormData();
+      Object.entries(f).forEach(([key, value]) => form.append(key, value || ''));
+      if (avatar) form.append('avatar', fileFromAsset(avatar, 'avatar'));
+      const result = await upload('PUT', '/users/me', form);
+      if (!result.user) throw new Error('The server did not return your updated profile. Please try again.');
+      setUser(result.user);
+      navigation.goBack();
+    } catch (error) {
+      Alert.alert('Could not save profile', error?.message || 'Please check your connection and try again.');
+    } finally {
+      setSaving(false);
+    }
   };
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -89,15 +153,16 @@ export function EditProfileScreen({ navigation }) {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
           <TouchableOpacity onPress={pick} style={{ alignItems: 'center', marginBottom: 20 }}>
-            {avatar ? <Image source={{ uri: avatar.uri }} style={{ width: 96, height: 96, borderRadius: 48 }} /> : <Avatar user={user} size={96} />}
-            <Text style={{ color: colors.primary, fontWeight: '700', marginTop: 8 }}>Change photo</Text>
+            {avatar ? <Image key={avatar.uri} source={{ uri: avatar.uri }} style={{ width: 96, height: 96, borderRadius: 48 }} /> : <Avatar user={user} size={96} />}
+            <Text style={{ color: colors.primary, fontWeight: '700', marginTop: 8 }}>{avatar ? 'Photo selected · tap to change' : 'Choose profile photo'}</Text>
+            {!!avatar && <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>Save changes to upload it to your profile.</Text>}
           </TouchableOpacity>
           <Input placeholder="Full name" value={f.fullName} onChangeText={(v) => setF({ ...f, fullName: v })} />
           <Input placeholder="Username" autoCapitalize="none" value={f.username} onChangeText={(v) => setF({ ...f, username: v })} />
           <Input placeholder="Bio" value={f.bio} onChangeText={(v) => setF({ ...f, bio: v })} multiline maxLength={200} />
           <Input placeholder="Website" autoCapitalize="none" value={f.website} onChangeText={(v) => setF({ ...f, website: v })} />
           <Input placeholder="Phone" keyboardType="phone-pad" value={f.phone} onChangeText={(v) => setF({ ...f, phone: v })} />
-          <GradientButton title="Save" onPress={save} loading={saving} />
+          <GradientButton title="Save changes" onPress={save} loading={saving} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

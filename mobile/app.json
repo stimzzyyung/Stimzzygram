@@ -1,15 +1,41 @@
 {
   "expo": {
-    "name": "Stimzzy'sgram",
-    "slug": "stimzzysgram",
+    "name": "StimzzyVibe",
+    "slug": "stimzzyvibe",
+    "scheme": "stimzzyvibe",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "splash": { "backgroundColor": "#0B1020" },
-    "ios": { "supportsTablet": true, "bundleIdentifier": "com.stimzzy.stimzzysgram",
-      "infoPlist": { "NSCameraUsageDescription": "Take photos and videos to share.", "NSMicrophoneUsageDescription": "Record voice messages and videos.", "NSPhotoLibraryUsageDescription": "Choose photos and videos to share." } },
-    "android": { "package": "com.stimzzy.stimzzysgram", "adaptiveIcon": { "backgroundColor": "#0B1020" },
-      "permissions": ["CAMERA", "RECORD_AUDIO", "READ_EXTERNAL_STORAGE"] },
-    "plugins": ["expo-image-picker", "expo-av"]
+    "splash": { "backgroundColor": "#080C10" },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vantavibe.stimzzysgram",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Take photos and videos to share.",
+        "NSMicrophoneUsageDescription": "Record voice messages and videos.",
+        "NSPhotoLibraryUsageDescription": "Choose photos and videos to share."
+      }
+    },
+    "android": {
+      "package": "com.vantavibe.stimzzysgram",
+      "adaptiveIcon": { "backgroundColor": "#080C10" },
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO",
+        "READ_EXTERNAL_STORAGE"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos so you can share them.",
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera so you can take photos and videos."
+        }
+      ],
+      "expo-av"
+    ]
   }
 }
