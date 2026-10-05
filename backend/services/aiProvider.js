@@ -27,7 +27,7 @@ async function readResponse(response, provider) {
 }
 
 exports.complete = async ({ purpose, system, messages, image, maxTokens = 1000, json = false }) => {
-  const apiKey = process.env.AI_API_KEY;
+  const apiKey = process.env.AI_API_KEY?.trim();
   if (!apiKey || apiKey === 'your_key_here') {
     const err = new Error('AI_API_KEY is not configured.');
     err.status = 503;
@@ -40,8 +40,8 @@ exports.complete = async ({ purpose, system, messages, image, maxTokens = 1000, 
     err.status = 503;
     throw err;
   }
-  const model = process.env[`AI_${purpose.toUpperCase()}_MODEL`]
-    || process.env.AI_MODEL
+  const model = process.env[`AI_${purpose.toUpperCase()}_MODEL`]?.trim()
+    || process.env.AI_MODEL?.trim()
     || DEFAULT_MODELS[provider];
   const requestMessages = messages.map((message) => ({ role: message.role, content: message.content }));
   const lastUser = requestMessages.findLastIndex((message) => message.role === 'user');
@@ -76,7 +76,11 @@ exports.complete = async ({ purpose, system, messages, image, maxTokens = 1000, 
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: system }] },
           contents,
-          generationConfig: { maxOutputTokens: maxTokens, ...(json ? { responseMimeType: 'application/json' } : {}) },
+          generationConfig: {
+            maxOutputTokens: maxTokens,
+            ...(model.startsWith('gemini-2.5-') ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+            ...(json ? { responseMimeType: 'application/json' } : {}),
+          },
         }),
         signal: controller.signal,
       });
