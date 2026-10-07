@@ -10,5 +10,10 @@ module.exports = mongoose.model('Message', new Schema({
   replyTo: { type: Schema.Types.ObjectId, ref: 'Message' },
   reactions: [{ user: { type: Schema.Types.ObjectId, ref: 'User' }, emoji: String }],
   readBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+  isSnap: { type: Boolean, default: false },
+  snapTimer: { type: Number, default: 10 },
+  snapOpened: { type: Boolean, default: false },
+  snapOpenedAt: Date,
+  snapBurned: { type: Boolean, default: false },
   deleted: { type: Boolean, default: false },
 }, { timestamps: true }));

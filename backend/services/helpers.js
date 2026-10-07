@@ -3,7 +3,7 @@ const User = require('../models/User');
 const Like = require('../models/Like');
 const SavedPost = require('../models/SavedPost');
 
-exports.USER_BRIEF = 'username fullName avatar isVerified isPrivate';
+exports.USER_BRIEF = 'username fullName avatar isVerified isPrivate avatarCustomization';
 
 exports.recountFollows = async (...ids) => {
   for (const id of ids) {

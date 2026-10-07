@@ -9,11 +9,13 @@ const { USER_BRIEF, followingIds, canSee } = require('../services/helpers');
 exports.create = asyncHandler(async (req, res) => {
   if (!req.file) throw httpError(400, 'Please select a photo or video.');
   const durationHours = Number(req.body.durationHours || 24);
-  if (![24, 48, 72, 168].includes(durationHours)) throw httpError(400, 'Choose a story duration of 24 hours, 2 days, 3 days or 7 days.');
-  if (durationHours > 24 && !req.user.isPremium) throw httpError(403, 'Longer-lasting stories are available to Premium users.');
+  if (![1, 6, 12, 24, 48, 72, 168].includes(durationHours)) throw httpError(400, 'Choose a valid story duration (1h, 6h, 12h, 24 hours, 2 days, 3 days or 7 days).');
+  if (durationHours > 24 && !req.user.isPremium) throw httpError(403, 'Stories longer than 24 hours are available to Premium users.');
   const { url, type } = await uploadFile(req.file, req);
   const story = await Story.create({
     author: req.user._id, mediaUrl: url, mediaType: type === 'video' ? 'video' : 'image', text: req.body.text,
+    filter: req.body.filter || 'none',
+    durationHours,
     stickers: req.body.stickers ? [].concat(req.body.stickers) : [],
     music: req.body.musicTitle ? { title: req.body.musicTitle, artist: req.body.musicArtist } : undefined,
     visibility: req.body.visibility || (req.user.privacy?.stories === 'close_friends' ? 'close_friends' : 'everyone'),
@@ -33,10 +35,10 @@ exports.feed = asyncHandler(async (req, res) => {
   for (const s of stories) {
     if (!canSee(s, s.author, req.user._id, set)) continue;
     const key = String(s.author._id);
-    if (!groups.has(key)) groups.set(key, { user: { _id: s.author._id, username: s.author.username, avatar: s.author.avatar, isVerified: s.author.isVerified }, stories: [], allViewed: true });
+    if (!groups.has(key)) groups.set(key, { user: { _id: s.author._id, username: s.author.username, avatar: s.author.avatar, isVerified: s.author.isVerified, avatarCustomization: s.author.avatarCustomization }, stories: [], allViewed: true });
     const g = groups.get(key);
     const viewed = s.viewers.some((v) => String(v) === String(req.user._id)) || key === String(req.user._id);
-    g.stories.push({ _id: s._id, mediaUrl: s.mediaUrl, mediaType: s.mediaType, text: s.text, stickers: s.stickers, music: s.music, createdAt: s.createdAt, expiresAt: s.expiresAt, viewed,
+    g.stories.push({ _id: s._id, mediaUrl: s.mediaUrl, mediaType: s.mediaType, text: s.text, filter: s.filter, durationHours: s.durationHours, stickers: s.stickers, music: s.music, createdAt: s.createdAt, expiresAt: s.expiresAt, viewed,
       ...(key === String(req.user._id) ? { viewersCount: s.viewers.length, reactions: s.reactions } : {}) });
     if (!viewed) g.allViewed = false;
   }

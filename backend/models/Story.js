@@ -5,6 +5,8 @@ const s = new Schema({
   mediaUrl: { type: String, required: true },
   mediaType: { type: String, enum: ['image', 'video'], default: 'image' },
   text: String,
+  filter: { type: String, default: 'none' },
+  durationHours: { type: Number, default: 24 },
   stickers: [String],
   music: { title: String, artist: String },
   visibility: { type: String, enum: ['everyone', 'followers', 'close_friends'], default: 'everyone' },

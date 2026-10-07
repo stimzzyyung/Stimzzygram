@@ -1,6 +1,7 @@
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const ScheduledMessage = require('../models/ScheduledMessage');
+const Story = require('../models/Story');
 const User = require('../models/User');
 const mongoose = require('mongoose');
 const { asyncHandler, httpError } = require('../middleware/error');
@@ -11,7 +12,7 @@ const { USER_BRIEF, allowed } = require('../services/helpers');
 const translateText = require('../services/translation');
 
 /** Shared by REST and story replies. */
-exports.sendDirect = async ({ from, to, text = '', media, replyTo, req, scheduledMessageId }) => {
+exports.sendDirect = async ({ from, to, text = '', media, replyTo, req, scheduledMessageId, isSnap = false, snapTimer = 10 }) => {
   if (scheduledMessageId) {
     const existing = await Message.findOne({ scheduledMessage: scheduledMessageId });
     if (existing) return existing.populate([{ path: 'sender', select: USER_BRIEF }, { path: 'replyTo', select: 'text mediaType sender' }]);
@@ -23,21 +24,29 @@ exports.sendDirect = async ({ from, to, text = '', media, replyTo, req, schedule
   if (!convo) convo = await Conversation.create({ participants: [from._id, to] });
   let mediaUrl, mediaType;
   if (media) ({ url: mediaUrl, type: mediaType } = await uploadFile(media, req));
-  const msg = await Message.create({ conversation: convo._id, sender: from._id, text, mediaUrl, mediaType, replyTo, readBy: [from._id], scheduledMessage: scheduledMessageId });
+  const snap = isSnap || req?.body?.isSnap === 'true' || req?.body?.isSnap === true;
+  const timer = Number(snapTimer || req?.body?.snapTimer || 10);
+  const msg = await Message.create({
+    conversation: convo._id, sender: from._id, text, mediaUrl, mediaType, replyTo,
+    readBy: [from._id], scheduledMessage: scheduledMessageId,
+    isSnap: snap, snapTimer: timer, snapOpened: false, snapBurned: false,
+  });
   convo.lastMessage = msg._id;
   convo.unread.set(String(to), (convo.unread.get(String(to)) || 0) + 1);
   await convo.save();
   const populated = await msg.populate([{ path: 'sender', select: USER_BRIEF }, { path: 'replyTo', select: 'text mediaType sender' }]);
   emitTo(to, 'message:new', populated);
   emitTo(from._id, 'message:new', populated);
-  notify({ recipient: to, sender: from._id, type: 'message', text: text || `Sent ${mediaType || 'a message'}` });
+  notify({ recipient: to, sender: from._id, type: 'message', text: snap ? 'Sent a Stimzzy Snap 🔥' : (text || `Sent ${mediaType || 'a message'}`) });
   return populated;
 };
 
 exports.send = asyncHandler(async (req, res) => {
   if (!req.body.to) throw httpError(400, 'Recipient is required.');
   if (!req.body.text && !req.file) throw httpError(400, 'Message is empty.');
-  const message = await exports.sendDirect({ from: req.user, to: req.body.to, text: req.body.text, media: req.file, replyTo: req.body.replyTo, req });
+  const isSnap = req.body.isSnap === 'true' || req.body.isSnap === true;
+  const snapTimer = Number(req.body.snapTimer || 10);
+  const message = await exports.sendDirect({ from: req.user, to: req.body.to, text: req.body.text, media: req.file, replyTo: req.body.replyTo, req, isSnap, snapTimer });
   res.status(201).json({ success: true, message });
 });
 
@@ -136,4 +145,90 @@ exports.remove = asyncHandler(async (req, res) => {
   const convo = await Conversation.findById(msg.conversation);
   convo.participants.forEach((p) => emitTo(p, 'message:update', msg));
   res.json({ success: true });
+});
+
+exports.openSnap = asyncHandler(async (req, res) => {
+  const msg = await Message.findById(req.params.id);
+  if (!msg) throw httpError(404, 'Snap not found.');
+  if (!msg.isSnap) throw httpError(400, 'This message is not a snap.');
+  if (msg.snapBurned) throw httpError(410, 'This snap has expired and burned.');
+  msg.snapOpened = true;
+  msg.snapOpenedAt = new Date();
+  if (!msg.readBy.some((id) => String(id) === String(req.user._id))) {
+    msg.readBy.push(req.user._id);
+  }
+  await msg.save();
+  const convo = await Conversation.findById(msg.conversation);
+  if (convo) convo.participants.forEach((p) => emitTo(p, 'message:update', msg));
+  res.json({ success: true, message: msg });
+});
+
+exports.burnSnap = asyncHandler(async (req, res) => {
+  const msg = await Message.findById(req.params.id);
+  if (!msg) throw httpError(404, 'Snap not found.');
+  msg.snapBurned = true;
+  msg.mediaUrl = '';
+  await msg.save();
+  const convo = await Conversation.findById(msg.conversation);
+  if (convo) convo.participants.forEach((p) => emitTo(p, 'message:update', msg));
+  res.json({ success: true, message: msg });
+});
+
+exports.quickShare = asyncHandler(async (req, res) => {
+  if (!req.file) throw httpError(400, 'Please select a photo or video to share.');
+  let recipientIds = [];
+  try {
+    if (req.body.recipients) {
+      recipientIds = Array.isArray(req.body.recipients) ? req.body.recipients : JSON.parse(req.body.recipients);
+    }
+  } catch {
+    recipientIds = [].concat(req.body.recipients || []);
+  }
+
+  const toStory = req.body.toStory === 'true' || req.body.toStory === true;
+  const isSnap = req.body.isSnap === 'true' || req.body.isSnap === true;
+  const snapTimer = Number(req.body.snapTimer || 10);
+  const text = req.body.text || '';
+  const filter = req.body.filter || 'none';
+  const { url, type } = await uploadFile(req.file, req);
+
+  let story = null;
+  if (toStory) {
+    const durationHours = Number(req.body.durationHours || 24);
+    story = await Story.create({
+      author: req.user._id, mediaUrl: url, mediaType: type === 'video' ? 'video' : 'image',
+      text: req.body.storyText || text,
+      filter,
+      durationHours,
+      visibility: req.body.storyVisibility || 'everyone',
+      expiresAt: new Date(Date.now() + durationHours * 60 * 60 * 1000),
+    });
+  }
+
+  const sentMessages = [];
+  for (const recipientId of recipientIds) {
+    try {
+      const recipient = await User.findById(recipientId).select('privacy blocked');
+      if (!recipient || recipient.blocked.includes(req.user._id) || req.user.blocked.some((b) => String(b) === String(recipientId))) continue;
+      let convo = await Conversation.findOne({ participants: { $all: [req.user._id, recipientId], $size: 2 } });
+      if (!convo) convo = await Conversation.create({ participants: [req.user._id, recipientId] });
+      const msg = await Message.create({
+        conversation: convo._id, sender: req.user._id, text,
+        mediaUrl: url, mediaType: type === 'video' ? 'video' : 'image',
+        readBy: [req.user._id],
+        isSnap, snapTimer, snapOpened: false, snapBurned: false,
+      });
+      convo.lastMessage = msg._id;
+      convo.unread.set(String(recipientId), (convo.unread.get(String(recipientId)) || 0) + 1);
+      await convo.save();
+      const populated = await msg.populate([{ path: 'sender', select: USER_BRIEF }]);
+      emitTo(recipientId, 'message:new', populated);
+      emitTo(req.user._id, 'message:new', populated);
+      notify({ recipient: recipientId, sender: req.user._id, type: 'message', text: isSnap ? 'Sent a Stimzzy Snap 🔥' : (text || `Sent a ${type}`) });
+      sentMessages.push(populated);
+    } catch {
+      // Continue next recipient
+    }
+  }
+  res.status(201).json({ success: true, count: sentMessages.length, story, messages: sentMessages });
 });

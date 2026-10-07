@@ -13,8 +13,11 @@ const translationLimit = rateLimit({
 });
 router.post('/translate', translationLimit, c.translate);
 router.post('/scheduled', c.schedule);
+router.post('/quick-share', upload.single('media'), c.quickShare);
 router.post('/', upload.single('media'), c.send);
 router.get('/with/:userId', c.thread);
 router.post('/:id/react', c.react);
+router.post('/:id/open-snap', c.openSnap);
+router.post('/:id/burn-snap', c.burnSnap);
 router.delete('/:id', c.remove);
 module.exports = router;

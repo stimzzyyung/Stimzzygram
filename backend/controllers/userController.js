@@ -33,10 +33,15 @@ exports.getUser = asyncHandler(async (req, res) => {
 });
 
 exports.updateMe = asyncHandler(async (req, res) => {
-  const allowed = ['fullName', 'bio', 'website', 'phone', 'isPrivate', 'privacy', 'notificationPrefs', 'twoFactorEnabled', 'pushToken', 'email', 'username'];
+  const allowed = ['fullName', 'bio', 'website', 'phone', 'isPrivate', 'privacy', 'notificationPrefs', 'twoFactorEnabled', 'pushToken', 'email', 'username', 'avatarCustomization', 'avatar'];
   const update = {};
   allowed.forEach((k) => req.body[k] !== undefined && (update[k] = req.body[k]));
-  if (typeof update.privacy === 'string') update.privacy = JSON.parse(update.privacy);
+  if (typeof update.privacy === 'string') {
+    try { update.privacy = JSON.parse(update.privacy); } catch {}
+  }
+  if (typeof update.avatarCustomization === 'string') {
+    try { update.avatarCustomization = JSON.parse(update.avatarCustomization); } catch {}
+  }
   if (update.privacy) { Object.entries(update.privacy).forEach(([k, v]) => (update[`privacy.${k}`] = v)); delete update.privacy; }
   if (update.notificationPrefs) { Object.entries(update.notificationPrefs).forEach(([k, v]) => (update[`notificationPrefs.${k}`] = v)); delete update.notificationPrefs; }
   if (req.file) update.avatar = (await uploadFile(req.file, req)).url;
