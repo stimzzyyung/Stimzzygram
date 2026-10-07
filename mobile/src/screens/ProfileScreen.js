@@ -8,6 +8,7 @@ import { api } from '../services/api';
 import Grid from '../components/Grid';
 import { Avatar, VerifiedBadge, GradientButton, OutlineButton, Skeleton, ErrorState, Empty } from '../components/UI';
 import { compact } from '../utils/format';
+import AvatarCustomizerModal from '../components/AvatarCustomizerModal';
 
 const TABS = [{ k: 'posts', icon: 'grid-outline' }, { k: 'videos', icon: 'play-circle-outline' }, { k: 'saved', icon: 'bookmark-outline', mine: true }, { k: 'tagged', icon: 'pricetag-outline' }];
 
@@ -45,6 +46,8 @@ export default function ProfileScreen({ navigation, route }) {
 
   const Stat = ({ n, label, onPress }) => <TouchableOpacity onPress={onPress} style={{ alignItems: 'center', flex: 1 }}><Text style={{ color: colors.text, fontSize: 18, fontWeight: '800' }}>{compact(n)}</Text><Text style={{ color: colors.muted, fontSize: 12 }}>{label}</Text></TouchableOpacity>;
 
+  const [customizerVisible, setCustomizerVisible] = useState(false);
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, height: 50 }}>
@@ -58,24 +61,46 @@ export default function ProfileScreen({ navigation, route }) {
       <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(tab, true)} tintColor={colors.primary} />}>
         <View style={{ padding: 16 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Avatar user={u} size={86} ring="new" />
+            <Avatar user={u} size={86} showFrame ring="new" />
             <View style={{ flex: 1, flexDirection: 'row', marginLeft: 8 }}>
               <Stat n={u.postsCount} label="Posts" />
               <Stat n={u.followersCount} label="Followers" onPress={() => navigation.push('FollowList', { id: u._id, type: 'followers' })} />
               <Stat n={u.followingCount} label="Following" onPress={() => navigation.push('FollowList', { id: u._id, type: 'following' })} />
             </View>
           </View>
-          <Text style={{ color: colors.text, fontWeight: '700', marginTop: 12 }}>{u.fullName}</Text>
-          {!!u.bio && <Text style={{ color: colors.text, marginTop: 2, lineHeight: 20 }}>{u.bio}</Text>}
+          <Text style={{ color: colors.text, fontWeight: '700', marginTop: 12, fontSize: 16 }}>{u.fullName}</Text>
+          {u.isPremium && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(212,175,106,0.15)', borderWidth: 1, borderColor: '#D4AF6A', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, alignSelf: 'flex-start', marginTop: 4 }}>
+              <Ionicons name="sparkles" size={12} color="#D4AF6A" />
+              <Text style={{ color: '#D4AF6A', fontSize: 11, fontWeight: '800', marginLeft: 4 }}>STIMZZYVIBE VIP</Text>
+            </View>
+          )}
+          {!!u.country && (
+            <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>
+              📍 {u.country} {u.language ? `· 🗣️ ${u.language}` : ''}
+            </Text>
+          )}
+          {!!u.avatarCustomization?.mood && (
+            <View style={{ alignSelf: 'flex-start', backgroundColor: 'rgba(125,17,40,0.18)', borderWidth: 1, borderColor: '#A31D3B', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, marginTop: 6 }}>
+              <Text style={{ color: '#D4AF6A', fontSize: 12, fontWeight: '700' }}>{u.avatarCustomization.mood}</Text>
+            </View>
+          )}
+          {!!u.bio && <Text style={{ color: colors.text, marginTop: 4, lineHeight: 20 }}>{u.bio}</Text>}
           {!!u.website && <Text style={{ color: colors.accent, marginTop: 2 }}>{u.website}</Text>}
           <View style={{ flexDirection: 'row', marginTop: 14 }}>
-            {u.isMe ? <OutlineButton small title="Edit profile" onPress={() => navigation.navigate('EditProfile')} style={{ flex: 1 }} /> : <>
+            {u.isMe ? <>
+              <OutlineButton small title="Edit profile" onPress={() => navigation.navigate('EditProfile')} style={{ flex: 1 }} />
+              <GradientButton small title={u.isPremium ? "⭐ VIP Perks" : "⭐ Go Premium"} onPress={() => navigation.navigate('Premium')} style={{ flex: 1, marginLeft: 8 }} />
+              <OutlineButton small title="👑 Studio" onPress={() => setCustomizerVisible(true)} style={{ marginLeft: 8 }} />
+            </> : <>
               {u.isFollowing || u.isPending ? <OutlineButton small title={u.isPending ? 'Requested' : 'Following'} onPress={toggleFollow} style={{ flex: 1 }} />
                 : <GradientButton small title={u.followsMe ? 'Follow back' : 'Follow'} onPress={toggleFollow} style={{ flex: 1 }} />}
               <OutlineButton small title="Message" onPress={() => navigation.navigate('Chat', { user: u })} style={{ flex: 1, marginLeft: 8 }} />
+              <OutlineButton small title="📸 Snap" onPress={() => navigation.navigate('Create', { mode: 'snap', targetUser: u })} style={{ marginLeft: 6, minWidth: 64 }} />
             </>}
           </View>
         </View>
+        <AvatarCustomizerModal visible={customizerVisible} onClose={() => { setCustomizerVisible(false); load(); }} />
         <View style={{ flexDirection: 'row', borderTopWidth: 1, borderColor: colors.border }}>
           {TABS.filter((t) => !t.mine || u.isMe).map((t) => <TouchableOpacity key={t.k} onPress={() => changeTab(t.k)} style={{ flex: 1, alignItems: 'center', padding: 12, borderBottomWidth: 2, borderColor: tab === t.k ? colors.primary : 'transparent' }}><Ionicons name={t.icon} size={24} color={tab === t.k ? colors.primary : colors.muted} /></TouchableOpacity>)}
         </View>

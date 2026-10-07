@@ -92,3 +92,36 @@ exports.banHashtag = asyncHandler(async (req, res) => {
   const h = await Hashtag.findByIdAndUpdate(req.params.id, { isBanned: !!req.body.banned }, { new: true });
   res.json({ success: true, hashtag: h });
 });
+
+const Subscription = require('../models/Subscription');
+const Message = require('../models/Message');
+const { getRates, updateBasePrice } = require('../services/currencyService');
+
+exports.subscriptions = asyncHandler(async (req, res) => {
+  const subscriptions = await Subscription.find()
+    .sort('-createdAt')
+    .limit(50)
+    .populate('userId', 'username fullName email avatar isPremium');
+  res.json({ success: true, subscriptions });
+});
+
+exports.getPricingConfig = asyncHandler(async (req, res) => {
+  res.json({ success: true, config: getRates() });
+});
+
+exports.updatePricingConfig = asyncHandler(async (req, res) => {
+  const { basePriceNGN } = req.body;
+  const updated = updateBasePrice(basePriceNGN);
+  res.json({ success: true, basePriceNGN: updated });
+});
+
+exports.deleteMessage = asyncHandler(async (req, res) => {
+  const msg = await Message.findById(req.params.id);
+  if (!msg) throw httpError(404, 'Message not found.');
+  msg.deleted = true;
+  msg.text = '[Removed by admin moderation]';
+  msg.mediaUrl = undefined;
+  await msg.save();
+  res.json({ success: true, message: 'Message moderated and removed.' });
+});
+

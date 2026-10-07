@@ -37,11 +37,21 @@ router.post('/verify-email', verificationAttemptLimit, [
 router.post('/resend-verification', verificationEmailLimit, [
   body('email').isEmail().withMessage('Enter a valid email.').normalizeEmail(),
 ], validate, c.resendVerification);
+router.post('/google', [
+  body('email').isEmail().withMessage('Enter a valid Google email address.').normalizeEmail(),
+], validate, c.googleAuth);
 router.post('/login', [body('identifier').notEmpty().withMessage('Email or username is required.'), body('password').notEmpty().withMessage('Password is required.')], validate, c.login);
 router.post('/logout', protect, c.logout);
 router.post('/logout-all', protect, c.logoutAll);
 router.get('/me', protect, c.me);
 router.post('/forgot-password', [body('email').isEmail().withMessage('Enter a valid email.')], validate, c.forgotPassword);
-router.post('/reset-password', [body('email').isEmail(), body('token').notEmpty().withMessage('Reset code is required.'), body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters.')], validate, c.resetPassword);
+router.post('/verify-reset-otp', [
+  body('email').isEmail().withMessage('Enter a valid email address.').normalizeEmail(),
+  body('otp').matches(/^\d{6}$/).withMessage('Enter the 6-digit OTP code.'),
+], validate, c.verifyResetOtp);
+router.post('/reset-password', [
+  body('email').isEmail(),
+  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters.'),
+], validate, c.resetPassword);
 router.put('/change-password', protect, [body('newPassword').isLength({ min: 8 }).withMessage('New password must be at least 8 characters.')], validate, c.changePassword);
 module.exports = router;

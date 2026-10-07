@@ -122,8 +122,21 @@ export function SelectInput({ icon, label, value, placeholder, options, onSelect
   );
 }
 
-export function Avatar({ user, size = 40, ring, style }) {
+const FRAME_GRADIENTS = {
+  burgundy_flame: ['#4A0817', '#7D1128', '#C22D52'],
+  royal_gold: ['#8A6538', '#D4AF6A', '#FBE2A7'],
+  neon_wine: ['#7D1128', '#E11D48', '#FFA4C2'],
+  diamond_frost: ['#0369A1', '#06B6D4', '#BAE6FD'],
+  rose_sparkle: ['#9D174D', '#F472B6', '#FCE7F3'],
+  noir_stealth: ['#1A0A10', '#33121B', '#662035'],
+};
+
+export function Avatar({ user, size = 40, ring, showFrame = false, style }) {
   const { colors } = useTheme();
+  const custom = user?.avatarCustomization;
+  const customFrameColors = custom?.frame && FRAME_GRADIENTS[custom.frame] ? FRAME_GRADIENTS[custom.frame] : gradient;
+  const accessory = custom?.accessory;
+
   const inner = user?.avatar ? (
     <Image source={{ uri: thumb(user.avatar, Math.ceil(size * 3)) }} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors.card }} />
   ) : (
@@ -131,12 +144,81 @@ export function Avatar({ user, size = 40, ring, style }) {
       <Text style={{ color: '#fff', fontWeight: '700', fontSize: size * 0.42 }}>{initials(user?.username || user?.fullName)}</Text>
     </View>
   );
-  if (!ring) return <View style={style}>{inner}</View>;
+
+  const shouldRenderRing = ring || (showFrame && custom?.frame);
+  const ringColors = ring === 'seen' ? [colors.border, colors.border] : customFrameColors;
   const outer = size + 8;
-  return (
-    <LinearGradient colors={ring === 'seen' ? [colors.border, colors.border] : gradient} style={[{ width: outer, height: outer, borderRadius: outer / 2, alignItems: 'center', justifyContent: 'center' }, style]}>
+
+  const content = shouldRenderRing ? (
+    <LinearGradient colors={ringColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: outer, height: outer, borderRadius: outer / 2, alignItems: 'center', justifyContent: 'center' }}>
       <View style={{ padding: 2, backgroundColor: colors.bg, borderRadius: outer / 2 }}>{inner}</View>
     </LinearGradient>
+  ) : inner;
+
+  return (
+    <View style={[{ width: shouldRenderRing ? outer : size, height: shouldRenderRing ? outer : size }, style]}>
+      {content}
+      {!!accessory && size >= 40 && (
+        <View style={{ position: 'absolute', top: -3, right: -3, width: size * 0.4, height: size * 0.4, borderRadius: (size * 0.4) / 2, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: colors.bg }}>
+          <Text style={{ fontSize: size * 0.22 }}>{accessory}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+export function FloatingReactionBurst({ triggerKey, emoji }) {
+  const [particles, setParticles] = React.useState([]);
+
+  React.useEffect(() => {
+    if (!emoji || !triggerKey) return;
+    const id = Date.now() + Math.random();
+    const anim = new Animated.Value(0);
+    const newParticle = { id, emoji, anim, xOffset: (Math.random() - 0.5) * 80 };
+
+    setParticles((prev) => [...prev.slice(-8), newParticle]);
+
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 1600,
+      useNativeDriver: true,
+    }).start(() => {
+      setParticles((prev) => prev.filter((p) => p.id !== id));
+    });
+  }, [triggerKey]);
+
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {particles.map((p) => {
+        const translateY = p.anim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, -320],
+        });
+        const opacity = p.anim.interpolate({
+          inputRange: [0, 0.7, 1],
+          outputRange: [1, 0.9, 0],
+        });
+        const scale = p.anim.interpolate({
+          inputRange: [0, 0.2, 1],
+          outputRange: [0.5, 1.4, 1],
+        });
+
+        return (
+          <Animated.View
+            key={p.id}
+            style={{
+              position: 'absolute',
+              bottom: 80,
+              alignSelf: 'center',
+              transform: [{ translateY }, { translateX: p.xOffset }, { scale }],
+              opacity,
+            }}
+          >
+            <Text style={{ fontSize: 44 }}>{p.emoji}</Text>
+          </Animated.View>
+        );
+      })}
+    </View>
   );
 }
 

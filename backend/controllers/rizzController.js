@@ -4,7 +4,7 @@ const { asyncHandler, httpError } = require('../middleware/error');
 const { generate } = require('../services/rizzService');
 
 exports.chat = asyncHandler(async (req, res) => {
-  const { message = '', style = 'smooth', context = '', category = 'chat', conversationId, image } = req.body;
+  const { message = '', style = 'smooth', context = '', category = 'chat', conversationId, image, modifier = '' } = req.body;
   if (!message.trim() && !image && !context.trim()) throw httpError(400, 'Tell Rizz Bot what you need help with.');
 
   let convo = conversationId && (await RizzConversation.findOne({ _id: conversationId, user: req.user._id }));
@@ -13,7 +13,7 @@ exports.chat = asyncHandler(async (req, res) => {
 
   let responses;
   try {
-    responses = await generate({ message, style, context, category, image, history: history.reverse().map((h) => ({ role: h.role, content: h.role === 'bot' ? h.responses.join(' | ') : h.content })) });
+    responses = await generate({ message, style, context, category, image, modifier, history: history.reverse().map((h) => ({ role: h.role, content: h.role === 'bot' ? h.responses.join(' | ') : h.content })) });
   } catch (e) {
     throw httpError([502, 503, 504].includes(e.status) ? e.status : 502, '🤖 Rizz Bot is unavailable right now. Please try again in a moment.');
   }

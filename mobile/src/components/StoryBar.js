@@ -17,8 +17,8 @@ export default function StoryBar({ groups, loading, navigation }) {
       renderItem={({ item }) => item.me ? (
         <TouchableOpacity style={{ alignItems: 'center', marginRight: 14 }} onPress={() => mine ? navigation.navigate('StoryViewer', { groups: [mine, ...others], index: 0 }) : navigation.navigate('Create', { mode: 'story' })}>
           <View>
-            <Avatar user={user} size={60} ring={mine ? 'new' : undefined} />
-            <View style={{ position: 'absolute', right: -2, bottom: -2, backgroundColor: colors.primary, borderRadius: 11, width: 22, height: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.bg }}>
+            <Avatar user={user} size={60} ring={mine ? 'new' : undefined} showFrame />
+            <View style={{ position: 'absolute', right: -2, bottom: -2, backgroundColor: colors.burgundy || colors.primary, borderRadius: 11, width: 22, height: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.bg }}>
               <Ionicons name="add" size={14} color="#fff" /></View>
           </View>
           <Text style={{ color: colors.text, fontSize: 12, marginTop: 4 }}>Your story</Text>

@@ -12,28 +12,51 @@ if (useCloud) {
   });
 }
 
-/** Uploads a multer memory file. Returns { url, type }. Falls back to local disk if Cloudinary isn't configured. */
+/** Uploads a multer memory file. Returns { url, type, fileName, fileSize, mimeType }. Falls back to local disk if Cloudinary isn't configured. */
 exports.uploadFile = (file, req) =>
   new Promise((resolve, reject) => {
-    const type = file.mimetype.startsWith('video') ? 'video' : file.mimetype.startsWith('audio') ? 'audio' : 'image';
+    let type = 'image';
+    if (file.mimetype.startsWith('video')) type = 'video';
+    else if (file.mimetype.startsWith('audio')) type = 'audio';
+    else if (
+      file.mimetype.startsWith('application') ||
+      file.mimetype.startsWith('text') ||
+      file.originalname.match(/\.(pdf|doc|docx|xls|xlsx|txt|zip|rar)$/i)
+    ) {
+      type = 'document';
+    }
+
+    const fileInfo = {
+      fileName: file.originalname || 'file',
+      fileSize: file.size || (file.buffer ? file.buffer.length : 0),
+      mimeType: file.mimetype || 'application/octet-stream',
+    };
+
     if (useCloud) {
+      const resourceType = type === 'image' ? 'image' : type === 'video' ? 'video' : 'raw';
       const stream = cloudinary.uploader.upload_stream(
         {
-          folder: 'stimzzysgram',
-          resource_type: type === 'image' ? 'image' : 'video',
-          // Shrink big photos/videos once, at upload time, so every phone downloads less
+          folder: 'stimzzyvibe',
+          resource_type: resourceType,
           transformation: type === 'image'
             ? [{ width: 1080, crop: 'limit', quality: 'auto', fetch_format: 'auto' }]
-            : [{ width: 720, crop: 'limit', quality: 'auto' }],
+            : type === 'video'
+            ? [{ width: 720, crop: 'limit', quality: 'auto' }]
+            : undefined,
         },
-        (err, result) => (err ? reject(err) : resolve({ url: result.secure_url, type }))
+        (err, result) => (err ? reject(err) : resolve({ url: result.secure_url, type, ...fileInfo }))
       );
       return stream.end(file.buffer);
     }
-    const ext = path.extname(file.originalname) || '.' + file.mimetype.split('/')[1];
+
+    const ext = path.extname(file.originalname) || ('.' + (file.mimetype.split('/')[1] || 'bin'));
     const name = crypto.randomBytes(12).toString('hex') + ext;
-    fs.writeFile(path.join(__dirname, '..', 'uploads', name), file.buffer, (err) => {
+    const uploadPath = path.join(__dirname, '..', 'uploads');
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    fs.writeFile(path.join(uploadPath, name), file.buffer, (err) => {
       if (err) return reject(err);
-      resolve({ url: `${req.protocol}://${req.get('host')}/uploads/${name}`, type });
+      resolve({ url: `${req.protocol}://${req.get('host')}/uploads/${name}`, type, ...fileInfo });
     });
   });

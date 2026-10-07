@@ -24,6 +24,7 @@ import RizzScreen from '../screens/RizzScreen';
 import { SettingsScreen, EditProfileScreen } from '../screens/SettingsScreens';
 import StoryViewerScreen from '../screens/StoryViewerScreen';
 import AdminScreen from '../screens/AdminScreen';
+import PremiumScreen from '../screens/PremiumScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -62,7 +63,7 @@ function Main() {
     <View style={{ flex: 1 }}>
       <Tabs />
       <TouchableOpacity onPress={() => navigation.navigate('Rizz')} activeOpacity={0.9}
-        style={{ position: 'absolute', right: 16, bottom: 60 + insets.bottom + 16, shadowColor: '#7C3AED', shadowOpacity: 0.5, shadowRadius: 12, elevation: 8 }}>
+        style={{ position: 'absolute', right: 16, bottom: 60 + insets.bottom + 16, shadowColor: '#800020', shadowOpacity: 0.5, shadowRadius: 12, elevation: 8 }}>
         <LinearGradient colors={gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name="sparkles" size={26} color="#fff" />
         </LinearGradient>
@@ -103,6 +104,7 @@ export default function Navigation() {
             <Stack.Screen name="Rizz" component={RizzScreen} options={{ animation: 'slide_from_bottom' }} />
             <Stack.Screen name="Settings" component={SettingsScreen} />
             <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+            <Stack.Screen name="Premium" component={PremiumScreen} />
             <Stack.Screen name="Admin" component={AdminScreen} />
             <Stack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ animation: 'fade', presentation: 'fullScreenModal' }} />
           </>

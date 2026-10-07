@@ -33,7 +33,7 @@ exports.getUser = asyncHandler(async (req, res) => {
 });
 
 exports.updateMe = asyncHandler(async (req, res) => {
-  const allowed = ['fullName', 'bio', 'website', 'phone', 'isPrivate', 'privacy', 'notificationPrefs', 'twoFactorEnabled', 'pushToken', 'email', 'username', 'avatarCustomization', 'avatar'];
+  const allowed = ['fullName', 'bio', 'website', 'phone', 'isPrivate', 'privacy', 'notificationPrefs', 'twoFactorEnabled', 'pushToken', 'email', 'username', 'avatarCustomization', 'avatar', 'country', 'language', 'dateOfBirth'];
   const update = {};
   allowed.forEach((k) => req.body[k] !== undefined && (update[k] = req.body[k]));
   if (typeof update.privacy === 'string') {
@@ -44,7 +44,11 @@ exports.updateMe = asyncHandler(async (req, res) => {
   }
   if (update.privacy) { Object.entries(update.privacy).forEach(([k, v]) => (update[`privacy.${k}`] = v)); delete update.privacy; }
   if (update.notificationPrefs) { Object.entries(update.notificationPrefs).forEach(([k, v]) => (update[`notificationPrefs.${k}`] = v)); delete update.notificationPrefs; }
-  if (req.file) update.avatar = (await uploadFile(req.file, req)).url;
+  if (req.body.removeAvatar === 'true' || req.body.removeAvatar === true) {
+    update.avatar = '';
+  } else if (req.file) {
+    update.avatar = (await uploadFile(req.file, req)).url;
+  }
   const user = await User.findByIdAndUpdate(req.user._id, { $set: update }, { new: true, runValidators: true });
   res.json({ success: true, user });
 });

@@ -10,14 +10,18 @@ import PostCard from '../components/PostCard';
 import StoryBar from '../components/StoryBar';
 import { PostSkeleton, ErrorState, Empty } from '../components/UI';
 import BrandWordmark from '../components/BrandWordmark';
+import { palette } from '../theme';
 
 const POST_VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 60 };
 
 export function AppHeader({ navigation, unread = 0 }) {
   const { colors } = useTheme();
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 52 }}>
-      <View style={{ flex: 1 }}><BrandWordmark size={23} color={colors.text} accentColor={colors.primary} /></View>
+    <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, height: 52 }}>
+      <TouchableOpacity onPress={() => navigation.navigate('Create', { mode: 'snap' })} style={{ padding: 6, marginRight: 6 }}>
+        <Ionicons name="camera" size={26} color={palette.burgundyLight || colors.primary} />
+      </TouchableOpacity>
+      <View style={{ flex: 1 }}><BrandWordmark size={23} color={colors.text} accentColor={palette.gold} /></View>
       <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={{ padding: 8 }}>
         <Ionicons name="heart-outline" size={26} color={colors.text} />
         {unread > 0 && <View style={{ position: 'absolute', top: 4, right: 4, backgroundColor: colors.danger, minWidth: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{unread}</Text></View>}

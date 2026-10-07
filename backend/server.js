@@ -41,6 +41,7 @@ app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/search', require('./routes/search'));
 app.use('/api/hashtags', require('./routes/hashtags'));
 app.use('/api/rizz', require('./routes/rizz'));
+app.use('/api/subscriptions', require('./routes/subscriptions'));
 app.use('/api/admin', require('./routes/admin'));
 
 app.use(notFound);
@@ -52,3 +53,5 @@ connectDB().then(() => {
  server.listen(PORT, '0.0.0.0', () => console.log(`StimzzyVibe API running on port ${PORT}`));
 })
  .catch((e) => { console.error('DB connection failed:', e.message); process.exit(1); });
+
+module.exports = { app, server };

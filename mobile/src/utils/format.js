@@ -14,5 +14,30 @@ export const thumb = (url, width = 400) =>
     : url;
 export const initials = (name = '?') => name.trim().slice(0, 1).toUpperCase();
 export const FILTERS = {
-  none: null, warm: 'rgba(255,140,0,0.18)', cool: 'rgba(6,182,212,0.22)', violet: 'rgba(124,58,237,0.25)', noir: 'rgba(0,0,0,0.4)', fade: 'rgba(255,255,255,0.25)',
+  none: null,
+  burgundy: 'rgba(125, 17, 40, 0.30)',
+  royal_gold: 'rgba(212, 175, 106, 0.26)',
+  noir: 'rgba(15, 10, 15, 0.52)',
+  neon_wine: 'rgba(194, 45, 82, 0.32)',
+  rose_velvet: 'rgba(195, 157, 122, 0.28)',
+  sunset: 'rgba(255, 120, 50, 0.24)',
+  cyber: 'rgba(6, 182, 212, 0.24)',
+  vintage: 'rgba(181, 137, 92, 0.26)',
+  warm: 'rgba(255, 140, 0, 0.18)',
+  cool: 'rgba(6, 182, 212, 0.22)',
+  violet: 'rgba(124, 58, 237, 0.25)',
+  fade: 'rgba(255, 255, 255, 0.25)',
 };
+
+export const FILTER_LIST = [
+  { id: 'none', label: 'Original', icon: '✨' },
+  { id: 'burgundy', label: 'Stimzzy Velvet', icon: '🍷' },
+  { id: 'royal_gold', label: 'Royal Gold', icon: '👑' },
+  { id: 'neon_wine', label: 'Neon Wine', icon: '⚡' },
+  { id: 'rose_velvet', label: 'Rose Velvet', icon: '🌹' },
+  { id: 'noir', label: 'Vibe Noir', icon: '🕶️' },
+  { id: 'sunset', label: 'Golden Hour', icon: '🌅' },
+  { id: 'cyber', label: 'Cyber Frost', icon: '💎' },
+  { id: 'vintage', label: 'Retro Film', icon: '🎞️' },
+];
+

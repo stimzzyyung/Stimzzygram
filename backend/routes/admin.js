@@ -16,4 +16,8 @@ router.put('/posts/:id/flag', c.flagPost);
 router.delete('/posts/:id', c.removePost);
 router.get('/hashtags', c.hashtags);
 router.put('/hashtags/:id/ban', c.banHashtag);
+router.get('/subscriptions', c.subscriptions);
+router.get('/pricing-config', c.getPricingConfig);
+router.put('/pricing-config', c.updatePricingConfig);
+router.delete('/messages/:id', c.deleteMessage);
 module.exports = router;

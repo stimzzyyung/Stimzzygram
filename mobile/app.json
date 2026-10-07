@@ -9,7 +9,7 @@
     "splash": { "backgroundColor": "#080C10" },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.vantavibe.stimzzysgram",
+      "bundleIdentifier": "com.stimzzyvibe.app",
       "infoPlist": {
         "NSCameraUsageDescription": "Take photos and videos to share.",
         "NSMicrophoneUsageDescription": "Record voice messages and videos.",
@@ -17,7 +17,7 @@
       }
     },
     "android": {
-      "package": "com.vantavibe.stimzzysgram",
+      "package": "com.stimzzyvibe.app",
       "adaptiveIcon": { "backgroundColor": "#080C10" },
       "permissions": [
         "CAMERA",

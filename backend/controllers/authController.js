@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const { asyncHandler, httpError } = require('../middleware/error');
 const { uploadFile } = require('../services/upload');
-const { sendVerificationCode } = require('../services/email');
+const { sendVerificationCode, sendPasswordResetOtp } = require('../services/email');
 
 const sign = (u) => jwt.sign({ id: u._id, v: u.tokenVersion }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '30d' });
 const clean = (u) => {
@@ -104,28 +104,101 @@ exports.logoutAll = asyncHandler(async (req, res) => {
 
 exports.me = asyncHandler(async (req, res) => res.json({ success: true, user: clean(req.user) }));
 
-exports.forgotPassword = asyncHandler(async (req, res) => {
-  const user = await User.findOne({ email: req.body.email.toLowerCase() });
+exports.googleAuth = asyncHandler(async (req, res) => {
+  const { email, name, googleId, avatar, country = 'Nigeria', language = 'English' } = req.body;
+  if (!email) throw httpError(400, 'Google email is required.');
+  const normalizedEmail = email.toLowerCase().trim();
+
+  let user = await User.findOne({ $or: [{ googleId }, { email: normalizedEmail }] }).select('+password');
   if (user) {
-    const token = crypto.randomBytes(3).toString('hex').toUpperCase(); // 6-char code
-    user.resetTokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    user.resetTokenExpires = Date.now() + 15 * 60 * 1000;
+    if (!user.googleId && googleId) {
+      user.googleId = googleId;
+    }
+    if (user.emailVerified === false) {
+      user.emailVerified = true;
+    }
+    user.loginActivity = [{ ip: req.ip, device: req.headers['user-agent'] }, ...(user.loginActivity || [])].slice(0, 20);
+    user.lastSeen = new Date();
     await user.save();
-    // TODO: send via your email provider (SendGrid, Resend, Nodemailer...). Logged for development:
-    console.log(`[DEV] Password reset code for ${user.email}: ${token}`);
+    return res.json({ success: true, token: sign(user), user: clean(user) });
   }
-  res.json({ success: true, message: 'If that email exists, a reset code has been sent.' });
+
+  // Create new user via Google
+  let baseUsername = (name || normalizedEmail.split('@')[0]).toLowerCase().replace(/[^a-z0-9._]/g, '').slice(0, 20) || 'vibe_user';
+  let username = baseUsername;
+  let count = 1;
+  while (await User.exists({ username })) {
+    username = `${baseUsername}${count++}`;
+  }
+
+  const randomPassword = crypto.randomBytes(16).toString('hex');
+  const passwordHash = await bcrypt.hash(randomPassword, 12);
+
+  user = await User.create({
+    fullName: name || username,
+    username,
+    email: normalizedEmail,
+    googleId,
+    password: passwordHash,
+    avatar: avatar || '',
+    country,
+    language,
+    emailVerified: true,
+  });
+
+  res.status(201).json({ success: true, token: sign(user), user: clean(user) });
+});
+
+exports.forgotPassword = asyncHandler(async (req, res) => {
+  const email = req.body.email.toLowerCase().trim();
+  const user = await User.findOne({ email });
+  if (user) {
+    const otp = String(crypto.randomInt(100000, 1000000)); // 6-digit numeric OTP
+    user.resetTokenHash = crypto.createHash('sha256').update(otp).digest('hex');
+    user.resetTokenExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+    await user.save();
+    await sendPasswordResetOtp(user.email, otp);
+  }
+  res.json({ success: true, message: 'If that email exists, an OTP verification code has been sent.' });
+});
+
+exports.verifyResetOtp = asyncHandler(async (req, res) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) throw httpError(400, 'Email and OTP code are required.');
+  const hash = crypto.createHash('sha256').update(String(otp).trim()).digest('hex');
+  const user = await User.findOne({
+    email: email.toLowerCase().trim(),
+    resetTokenHash: hash,
+    resetTokenExpires: { $gt: Date.now() },
+  });
+  if (!user) throw httpError(400, 'Invalid or expired OTP verification code.');
+  res.json({ success: true, message: 'OTP verified successfully.' });
 });
 
 exports.resetPassword = asyncHandler(async (req, res) => {
-  const { email, token, password } = req.body;
-  const hash = crypto.createHash('sha256').update(token.toUpperCase()).digest('hex');
-  const user = await User.findOne({ email: email.toLowerCase(), resetTokenHash: hash, resetTokenExpires: { $gt: Date.now() } });
+  const { email, token, otp, password, confirmPassword } = req.body;
+  const code = String(otp || token || '').trim();
+  if (!code) throw httpError(400, 'OTP code is required.');
+  if (confirmPassword && password !== confirmPassword) {
+    throw httpError(400, 'Passwords do not match.');
+  }
+  if (!password || password.length < 8) {
+    throw httpError(400, 'Password must be at least 8 characters.');
+  }
+
+  const hash = crypto.createHash('sha256').update(code).digest('hex');
+  const user = await User.findOne({
+    email: email.toLowerCase().trim(),
+    resetTokenHash: hash,
+    resetTokenExpires: { $gt: Date.now() },
+  });
   if (!user) throw httpError(400, 'Invalid or expired reset code.');
   user.password = await bcrypt.hash(password, 12);
-  user.resetTokenHash = undefined; user.resetTokenExpires = undefined; user.tokenVersion += 1;
+  user.resetTokenHash = undefined;
+  user.resetTokenExpires = undefined;
+  user.tokenVersion += 1;
   await user.save();
-  res.json({ success: true, message: 'Password updated. Please log in.' });
+  res.json({ success: true, message: 'Password updated successfully. Please log in.' });
 });
 
 exports.changePassword = asyncHandler(async (req, res) => {
@@ -135,3 +208,4 @@ exports.changePassword = asyncHandler(async (req, res) => {
   await user.save();
   res.json({ success: true, message: 'Password changed.' });
 });
+
