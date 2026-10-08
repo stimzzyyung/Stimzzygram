@@ -115,8 +115,14 @@ export default function CreateScreen({ navigation, route }) {
       api.get('/conversations')
         .then((res) => {
           if (!active) return;
-          const convos = (res.conversations || []).map((c) => c.user).filter(Boolean);
-          setFriendsList(convos);
+          const friendsById = new Map();
+          (res.conversations || []).forEach((convo) => {
+            const friend = convo.user;
+            if (friend?._id && !friendsById.has(String(friend._id))) {
+              friendsById.set(String(friend._id), friend);
+            }
+          });
+          setFriendsList(Array.from(friendsById.values()));
           if (route.params?.targetUser) {
             setRecipients([route.params.targetUser._id]);
             setSendToVisible(true);
