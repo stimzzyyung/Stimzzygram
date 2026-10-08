@@ -535,6 +535,9 @@ export function ChatScreen({ navigation, route }) {
   const [translatingMsgId, setTranslatingMsgId] = useState(null);
   const [langPickerVisible, setLangPickerVisible] = useState(false);
   const [activeTranslateMsg, setActiveTranslateMsg] = useState(null);
+  const [draftTranslation, setDraftTranslation] = useState(null);
+  const [translatingDraft, setTranslatingDraft] = useState(false);
+  const sendLongPressHandled = useRef(false);
 
   // Attachment Sheet
   const [attachSheetVisible, setAttachSheetVisible] = useState(false);
@@ -666,6 +669,7 @@ export function ChatScreen({ navigation, route }) {
 
   const handleTextChange = (t) => {
     setText(t);
+    setDraftTranslation(null);
     if (!isGroup && otherUser?._id) {
       getSocket()?.emit('typing', { to: otherUser._id, isTyping: true });
       clearTimeout(typingTimer.current);
@@ -710,6 +714,7 @@ export function ChatScreen({ navigation, route }) {
       const res = await api.form('POST', '/messages', form);
       setMessages((curr) => (curr?.some((x) => x._id === res.message._id) ? curr : [...(curr || []), res.message]));
       setText('');
+      setDraftTranslation(null);
       setReplyTo(null);
       if (!convoId && res.message.conversation) {
         setConvoId(res.message.conversation);
@@ -874,12 +879,58 @@ export function ChatScreen({ navigation, route }) {
         targetLanguage: targetLang || defaultLanguage,
         messageId: msg._id,
       });
-      setTranslations((curr) => ({ ...curr, [msg._id]: res.translation }));
+      setTranslations((curr) => ({
+        ...curr,
+        [msg._id]: { text: res.translation, targetLanguage: targetLang || defaultLanguage },
+      }));
     } catch (e) {
       Alert.alert('Translation error', e.message);
     } finally {
       setTranslatingMsgId(null);
     }
+  };
+
+  const translateDraft = async (sourceText, targetLang = defaultLanguage) => {
+    const source = (sourceText || text).trim();
+    if (!source) {
+      Alert.alert('Nothing to translate', 'Type a message first, then press and hold Send to translate it.');
+      return;
+    }
+    setTranslatingDraft(true);
+    try {
+      const res = await api.post('/messages/translate', {
+        text: source,
+        targetLanguage: targetLang,
+      });
+      setDraftTranslation({ source, text: res.translation, targetLanguage: targetLang });
+    } catch (e) {
+      Alert.alert('Translation error', e.message);
+    } finally {
+      setTranslatingDraft(false);
+    }
+  };
+
+  const showSendTranslationOptions = () => {
+    if (!translatorEnabled) {
+      Alert.alert('Translator is off', 'Turn on Message & Post Translator in Settings to translate messages.');
+      return;
+    }
+    const source = text.trim();
+    if (!source) {
+      Alert.alert('Nothing to translate', 'Type a message first, then press and hold Send to translate it.');
+      return;
+    }
+    Alert.alert('Translate draft', `Translate this message into ${defaultLanguage}?`, [
+      { text: `Translate to ${defaultLanguage}`, onPress: () => translateDraft(source) },
+      {
+        text: 'Choose language...',
+        onPress: () => {
+          setActiveTranslateMsg({ draftText: source });
+          setLangPickerVisible(true);
+        },
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   // Snap / View Once viewer
@@ -1034,7 +1085,9 @@ export function ChatScreen({ navigation, route }) {
               const mine = String(m.sender?._id || m.sender) === String(me._id);
               const bubbleBg = mine ? colors.bubbleMine : colors.card;
               const textColor = mine ? '#fff' : colors.text;
-              const translated = translations[m._id] || (m.translatedContent && m.translatedContent[defaultLanguage]);
+              const localTranslation = translations[m._id];
+              const translated = localTranslation?.text || (m.translatedContent && m.translatedContent[defaultLanguage]);
+              const translatedLanguage = localTranslation?.text ? localTranslation.targetLanguage : defaultLanguage;
 
               // Status Icon
               const statusIcon =
@@ -1202,18 +1255,27 @@ export function ChatScreen({ navigation, route }) {
                     {/* In-Line Translate Button specified by Requirement 11 */}
                     {translatorEnabled && !m.deleted && !!m.text && (
                       <View style={{ marginTop: 6, paddingTop: 4, borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.15)' }}>
-                        <TouchableOpacity
-                          onPress={() => {
-                            setActiveTranslateMsg(m);
-                            setLangPickerVisible(true);
-                          }}
-                          style={{ flexDirection: 'row', alignItems: 'center' }}
-                        >
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <TouchableOpacity
+                            onPress={() => triggerTranslation(m, defaultLanguage)}
+                            style={{ flexDirection: 'row', alignItems: 'center' }}
+                          >
                           <Ionicons name="language" size={14} color={mine ? palette.gold : colors.primary} style={{ marginRight: 4 }} />
                           <Text style={{ color: mine ? palette.gold : colors.primary, fontSize: 12, fontWeight: '700' }}>
-                            {translatingMsgId === m._id ? 'Translating...' : 'Translate ▼'}
+                            {translatingMsgId === m._id ? 'Translating...' : 'Translate'}
                           </Text>
-                        </TouchableOpacity>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => {
+                              setActiveTranslateMsg(m);
+                              setLangPickerVisible(true);
+                            }}
+                            accessibilityLabel="Choose translation language"
+                            style={{ paddingHorizontal: 6, paddingVertical: 2 }}
+                          >
+                            <Ionicons name="chevron-down" size={16} color={mine ? palette.gold : colors.primary} />
+                          </TouchableOpacity>
+                        </View>
 
                         {/* Translated Content Dropdown Box */}
                         {!!translated && (
@@ -1226,7 +1288,7 @@ export function ChatScreen({ navigation, route }) {
                             }}
                           >
                             <Text style={{ color: palette.gold, fontSize: 10, fontWeight: '800' }}>
-                              TRANSLATED ({defaultLanguage}):
+                              TRANSLATED ({translatedLanguage}):
                             </Text>
                             <Text style={{ color: textColor, fontSize: 14, fontStyle: 'italic', marginTop: 2 }}>
                               {translated}
@@ -1312,6 +1374,29 @@ export function ChatScreen({ navigation, route }) {
           </View>
         )}
 
+        {draftTranslation && (
+          <View style={{ paddingHorizontal: 12, paddingVertical: 8, backgroundColor: colors.card, borderTopWidth: 1, borderColor: colors.border }}>
+            <Text style={{ color: colors.muted, fontSize: 11, fontWeight: '700' }}>
+              TRANSLATED TO {draftTranslation.targetLanguage.toUpperCase()}
+            </Text>
+            <Text style={{ color: colors.text, fontSize: 14, marginTop: 3 }}>{draftTranslation.text}</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 6 }}>
+              <TouchableOpacity onPress={() => setDraftTranslation(null)} style={{ paddingHorizontal: 10, paddingVertical: 5 }}>
+                <Text style={{ color: colors.muted, fontWeight: '700' }}>Dismiss</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  setText(draftTranslation.text);
+                  setDraftTranslation(null);
+                }}
+                style={{ paddingHorizontal: 10, paddingVertical: 5 }}
+              >
+                <Text style={{ color: colors.primary, fontWeight: '800' }}>Use translation</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* Bottom Messaging Input Bar */}
         <View
           style={{
@@ -1351,12 +1436,30 @@ export function ChatScreen({ navigation, route }) {
 
           {/* Voice Record / Send Button */}
           {text.trim() || editingMessage ? (
-            <TouchableOpacity onPress={() => sendMessage()} disabled={sending}>
+            <TouchableOpacity
+              onPressIn={() => {
+                sendLongPressHandled.current = false;
+              }}
+              onPress={() => {
+                if (sendLongPressHandled.current) {
+                  sendLongPressHandled.current = false;
+                  return;
+                }
+                sendMessage();
+              }}
+              onLongPress={() => {
+                sendLongPressHandled.current = true;
+                showSendTranslationOptions();
+              }}
+              delayLongPress={450}
+              disabled={sending || translatingDraft}
+              accessibilityLabel={translatingDraft ? 'Translating message' : 'Send message, or press and hold to translate'}
+            >
               <LinearGradient
                 colors={gradient}
                 style={{ width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' }}
               >
-                <Ionicons name="send" size={19} color="#fff" />
+                <Ionicons name={translatingDraft ? 'language' : 'send'} size={19} color="#fff" />
               </LinearGradient>
             </TouchableOpacity>
           ) : (
@@ -1446,7 +1549,10 @@ export function ChatScreen({ navigation, route }) {
                   key={lang}
                   onPress={() => {
                     setLangPickerVisible(false);
-                    if (activeTranslateMsg) triggerTranslation(activeTranslateMsg, lang);
+                    const selected = activeTranslateMsg;
+                    setActiveTranslateMsg(null);
+                    if (selected?.draftText) translateDraft(selected.draftText, lang);
+                    else if (selected) triggerTranslation(selected, lang);
                   }}
                   style={{
                     paddingVertical: 12,
