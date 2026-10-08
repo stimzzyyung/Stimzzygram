@@ -17,6 +17,7 @@ export default function ProfileScreen({ navigation, route }) {
   const { colors } = useTheme();
   const [u, setU] = useState(null); const [items, setItems] = useState(null); const [tab, setTab] = useState('posts');
   const [error, setError] = useState(null); const [refreshing, setRefreshing] = useState(false);
+  const [customizerVisible, setCustomizerVisible] = useState(false);
 
   const load = async (t = tab, refresh) => {
     refresh && setRefreshing(true); setError(null);
@@ -45,8 +46,6 @@ export default function ProfileScreen({ navigation, route }) {
   if (!u) return <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg, padding: 20 }}><Skeleton width={90} height={90} radius={45} /><Skeleton width={160} height={18} style={{ marginTop: 16 }} /><Skeleton height={60} style={{ marginTop: 16 }} /></SafeAreaView>;
 
   const Stat = ({ n, label, onPress }) => <TouchableOpacity onPress={onPress} style={{ alignItems: 'center', flex: 1 }}><Text style={{ color: colors.text, fontSize: 18, fontWeight: '800' }}>{compact(n)}</Text><Text style={{ color: colors.muted, fontSize: 12 }}>{label}</Text></TouchableOpacity>;
-
-  const [customizerVisible, setCustomizerVisible] = useState(false);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
