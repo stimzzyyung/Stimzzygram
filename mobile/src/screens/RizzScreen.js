@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -69,7 +69,7 @@ function Typing() {
   );
 }
 
-function ResponseCard({ text, index, colors, onInsert }) {
+const ResponseCard = React.memo(function ResponseCard({ text, index, colors, onInsert }) {
   const a = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.timing(a, { toValue: 1, duration: 350, delay: index * 100, useNativeDriver: true }).start();
@@ -138,7 +138,123 @@ function ResponseCard({ text, index, colors, onInsert }) {
       </View>
     </Animated.View>
   );
-}
+});
+
+const RizzMessageItem = React.memo(function RizzMessageItem({
+  message,
+  colors,
+  showActions,
+  onInsertReply,
+  onRegenerate,
+  onModifier,
+}) {
+  if (message.role === 'user') {
+    return (
+      <View
+        style={{
+          alignSelf: 'flex-end',
+          maxWidth: '85%',
+          backgroundColor: colors.bubbleMine,
+          borderRadius: 18,
+          padding: 14,
+          marginBottom: 12,
+        }}
+      >
+        <Text style={{ color: '#fff', fontSize: 15 }}>{message.content}</Text>
+      </View>
+    );
+  }
+
+  if (message.role === 'error') {
+    return (
+      <View
+        style={{
+          alignSelf: 'flex-start',
+          backgroundColor: colors.card,
+          borderRadius: 16,
+          padding: 14,
+          marginBottom: 12,
+          borderWidth: 1,
+          borderColor: colors.danger,
+        }}
+      >
+        <Text style={{ color: colors.text }}>{message.content}</Text>
+        <TouchableOpacity onPress={onRegenerate} style={{ marginTop: 8 }}>
+          <Text style={{ color: colors.primary, fontWeight: '700' }}>Try Again</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ alignSelf: 'flex-start', width: '100%', marginBottom: 16 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+        <Ionicons name="sparkles" size={16} color={palette.gold} style={{ marginRight: 6 }} />
+        <Text style={{ color: palette.gold, fontSize: 13, fontWeight: '700' }}>Rizz Bot Suggestions:</Text>
+      </View>
+
+      {(Array.isArray(message.responses) ? message.responses : []).map((response, index) => (
+        <ResponseCard
+          key={`${message._id || 'response'}-${index}`}
+          text={response}
+          index={index}
+          colors={colors}
+          onInsert={onInsertReply}
+        />
+      ))}
+
+      {showActions && (
+        <View style={{ marginTop: 14 }}>
+          <Text style={{ color: colors.muted, fontSize: 12, fontWeight: '700', marginBottom: 6, textTransform: 'uppercase' }}>
+            Tweak These Replies:
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <TouchableOpacity
+              onPress={onRegenerate}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: colors.card,
+                paddingHorizontal: 12,
+                paddingVertical: 7,
+                borderRadius: 16,
+                marginRight: 6,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}
+            >
+              <Ionicons name="refresh" size={15} color={colors.primary} style={{ marginRight: 4 }} />
+              <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 13 }}>Regenerate</Text>
+            </TouchableOpacity>
+
+            {[
+              ['more_flirty', '😉 More Flirty'],
+              ['more_funny', '😂 More Funny'],
+              ['more_confident', '👑 More Confident'],
+              ['make_shorter', '✂️ Make It Shorter'],
+            ].map(([modifier, label]) => (
+              <TouchableOpacity
+                key={modifier}
+                onPress={() => onModifier(modifier)}
+                style={{
+                  backgroundColor: colors.card,
+                  paddingHorizontal: 12,
+                  paddingVertical: 7,
+                  borderRadius: 16,
+                  marginRight: 6,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+              >
+                <Text style={{ color: colors.text, fontWeight: '600', fontSize: 13 }}>{label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+    </View>
+  );
+});
 
 export default function RizzScreen({ navigation, route }) {
   const { colors } = useTheme();
@@ -157,6 +273,8 @@ export default function RizzScreen({ navigation, route }) {
 
   const listRef = useRef();
   const lastPayload = useRef(null);
+  const regenerateRef = useRef(null);
+  const modifierRef = useRef(null);
 
   useEffect(() => {
     (async () => {
@@ -232,6 +350,31 @@ export default function RizzScreen({ navigation, route }) {
     setMessages((m) => m.filter((x, i) => !(i === m.length - 1 && x.role === 'bot')));
     ask(lastPayload.current);
   };
+
+  regenerateRef.current = regenerate;
+  modifierRef.current = handleModifier;
+
+  const onRegenerate = useCallback(() => regenerateRef.current?.(), []);
+  const onModifier = useCallback((modifier) => modifierRef.current?.(modifier), []);
+  const onInsertReply = useCallback((chosen) => {
+    if (!targetChatKey) return;
+    navigation.navigate({
+      name: 'Chat',
+      key: targetChatKey,
+      params: { draftReply: chosen },
+      merge: true,
+    });
+  }, [navigation, targetChatKey]);
+  const renderMessage = useCallback(({ item, index }) => (
+    <RizzMessageItem
+      message={item}
+      colors={colors}
+      showActions={index === messages.length - 1 && !loading}
+      onInsertReply={targetChatKey ? onInsertReply : null}
+      onRegenerate={onRegenerate}
+      onModifier={onModifier}
+    />
+  ), [colors, loading, messages.length, onInsertReply, onModifier, onRegenerate, targetChatKey]);
 
   const analyze = async () => {
     try {
@@ -414,155 +557,16 @@ export default function RizzScreen({ navigation, route }) {
           <FlatList
             ref={listRef}
             data={messages}
-            keyExtractor={(_, i) => String(i)}
+            keyExtractor={(item, index) => String(item._id || `${item.role}-${index}`)}
             contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
             ListFooterComponent={loading ? <Typing /> : null}
-            renderItem={({ item: m, index }) =>
-              m.role === 'user' ? (
-                <View
-                  style={{
-                    alignSelf: 'flex-end',
-                    maxWidth: '85%',
-                    backgroundColor: colors.bubbleMine,
-                    borderRadius: 18,
-                    padding: 14,
-                    marginBottom: 12,
-                  }}
-                >
-                  <Text style={{ color: '#fff', fontSize: 15 }}>{m.content}</Text>
-                </View>
-              ) : m.role === 'error' ? (
-                <View
-                  style={{
-                    alignSelf: 'flex-start',
-                    backgroundColor: colors.card,
-                    borderRadius: 16,
-                    padding: 14,
-                    marginBottom: 12,
-                    borderWidth: 1,
-                    borderColor: colors.danger,
-                  }}
-                >
-                  <Text style={{ color: colors.text }}>{m.content}</Text>
-                  <TouchableOpacity onPress={regenerate} style={{ marginTop: 8 }}>
-                    <Text style={{ color: colors.primary, fontWeight: '700' }}>Try Again</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <View style={{ alignSelf: 'flex-start', width: '100%', marginBottom: 16 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                    <Ionicons name="sparkles" size={16} color={palette.gold} style={{ marginRight: 6 }} />
-                    <Text style={{ color: palette.gold, fontSize: 13, fontWeight: '700' }}>Rizz Bot Suggestions:</Text>
-                  </View>
-
-                  {(Array.isArray(m.responses) ? m.responses : []).map((r, i) => (
-                    <ResponseCard
-                      key={i}
-                      text={r}
-                      index={i}
-                      colors={colors}
-                      onInsert={targetChatKey
-                        ? (chosen) => navigation.navigate({
-                            name: 'Chat',
-                            key: targetChatKey,
-                            params: { draftReply: chosen },
-                            merge: true,
-                          })
-                        : null}
-                    />
-                  ))}
-
-                  {/* Refine / Modifier Buttons specified by prompt */}
-                  {index === messages.length - 1 && !loading && (
-                    <View style={{ marginTop: 14 }}>
-                      <Text style={{ color: colors.muted, fontSize: 12, fontWeight: '700', marginBottom: 6, textTransform: 'uppercase' }}>
-                        Tweak These Replies:
-                      </Text>
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        <TouchableOpacity
-                          onPress={regenerate}
-                          style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            backgroundColor: colors.card,
-                            paddingHorizontal: 12,
-                            paddingVertical: 7,
-                            borderRadius: 16,
-                            marginRight: 6,
-                            borderWidth: 1,
-                            borderColor: colors.border,
-                          }}
-                        >
-                          <Ionicons name="refresh" size={15} color={colors.primary} style={{ marginRight: 4 }} />
-                          <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 13 }}>Regenerate</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          onPress={() => handleModifier('more_flirty')}
-                          style={{
-                            backgroundColor: colors.card,
-                            paddingHorizontal: 12,
-                            paddingVertical: 7,
-                            borderRadius: 16,
-                            marginRight: 6,
-                            borderWidth: 1,
-                            borderColor: colors.border,
-                          }}
-                        >
-                          <Text style={{ color: colors.text, fontWeight: '600', fontSize: 13 }}>😉 More Flirty</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          onPress={() => handleModifier('more_funny')}
-                          style={{
-                            backgroundColor: colors.card,
-                            paddingHorizontal: 12,
-                            paddingVertical: 7,
-                            borderRadius: 16,
-                            marginRight: 6,
-                            borderWidth: 1,
-                            borderColor: colors.border,
-                          }}
-                        >
-                          <Text style={{ color: colors.text, fontWeight: '600', fontSize: 13 }}>😂 More Funny</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          onPress={() => handleModifier('more_confident')}
-                          style={{
-                            backgroundColor: colors.card,
-                            paddingHorizontal: 12,
-                            paddingVertical: 7,
-                            borderRadius: 16,
-                            marginRight: 6,
-                            borderWidth: 1,
-                            borderColor: colors.border,
-                          }}
-                        >
-                          <Text style={{ color: colors.text, fontWeight: '600', fontSize: 13 }}>👑 More Confident</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          onPress={() => handleModifier('make_shorter')}
-                          style={{
-                            backgroundColor: colors.card,
-                            paddingHorizontal: 12,
-                            paddingVertical: 7,
-                            borderRadius: 16,
-                            marginRight: 6,
-                            borderWidth: 1,
-                            borderColor: colors.border,
-                          }}
-                        >
-                          <Text style={{ color: colors.text, fontWeight: '600', fontSize: 13 }}>✂️ Make It Shorter</Text>
-                        </TouchableOpacity>
-                      </ScrollView>
-                    </View>
-                  )}
-                </View>
-              )
-            }
+            renderItem={renderMessage}
+            initialNumToRender={8}
+            maxToRenderPerBatch={6}
+            windowSize={7}
+            updateCellsBatchingPeriod={50}
+            removeClippedSubviews={Platform.OS === 'android'}
           />
         )}
 
