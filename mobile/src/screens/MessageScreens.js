@@ -518,6 +518,8 @@ export function ChatScreen({ navigation, route }) {
   const [text, setText] = useState('');
   const [replyTo, setReplyTo] = useState(null);
   const [editingMessage, setEditingMessage] = useState(null);
+  const [messageActionsVisible, setMessageActionsVisible] = useState(false);
+  const [selectedActionMessage, setSelectedActionMessage] = useState(null);
   const [typing, setTyping] = useState(false);
   const [online, setOnline] = useState(false);
   const [sending, setSending] = useState(false);
@@ -809,65 +811,22 @@ export function ChatScreen({ navigation, route }) {
   };
 
   // Reactions & Actions
-  const handleReact = (msgId, emoji) => {
-    api.post(`/messages/${msgId}/react`, { emoji }).catch(() => {});
+  const handleReact = async (msg, selectedEmoji) => {
+    if (!msg || msg.deleted) return;
+    const existingReaction = msg.reactions?.find((reaction) => String(reaction.user?._id || reaction.user) === String(me._id));
+    const emoji = existingReaction?.emoji === selectedEmoji ? '' : selectedEmoji;
+    setMessageActionsVisible(false);
+    try {
+      const result = await api.post(`/messages/${msg._id}/react`, { emoji });
+      setMessages((current) => current?.map((item) => item._id === msg._id ? { ...item, reactions: result.message.reactions } : item));
+    } catch (error) {
+      Alert.alert('Reaction failed', error.message);
+    }
   };
 
   const openActionMenu = (msg) => {
-    const mine = String(msg.sender?._id || msg.sender) === String(me._id);
-    Alert.alert('Message Options', undefined, [
-      {
-        text: 'Reply',
-        onPress: () => setReplyTo(msg),
-      },
-      {
-        text: 'Forward',
-        onPress: () => {
-          setForwardingMsg(msg);
-          api.get('/conversations').then((r) => setAllConversations(r.conversations || []));
-          setForwardModalVisible(true);
-        },
-      },
-      {
-        text: 'Copy Text',
-        onPress: async () => {
-          if (msg.text) {
-            await Clipboard.setStringAsync(msg.text);
-            Alert.alert('Copied', 'Message copied to clipboard.');
-          }
-        },
-      },
-      ...(translatorEnabled && msg.text
-        ? [
-            {
-              text: 'Translate',
-              onPress: () => {
-                setActiveTranslateMsg(msg);
-                setLangPickerVisible(true);
-              },
-            },
-          ]
-        : []),
-      ...(mine && !msg.deleted
-        ? [
-            {
-              text: 'Edit Message',
-              onPress: () => {
-                setEditingMessage(msg);
-                setText(msg.text);
-              },
-            },
-            {
-              text: 'Delete Message',
-              style: 'destructive',
-              onPress: () => {
-                api.del(`/messages/${msg._id}`).catch((e) => Alert.alert('Error', e.message));
-              },
-            },
-          ]
-        : []),
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+    setSelectedActionMessage(msg);
+    setMessageActionsVisible(true);
   };
 
   // In-line translation for an individual message
@@ -1483,6 +1442,158 @@ export function ChatScreen({ navigation, route }) {
         </View>
       </KeyboardAvoidingView>
 
+      <Modal
+        visible={messageActionsVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMessageActionsVisible(false)}
+      >
+        <View style={styles.messageActionOverlay}>
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => setMessageActionsVisible(false)}
+            style={StyleSheet.absoluteFill}
+          />
+          {selectedActionMessage && (
+            <View style={[styles.messageActionSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={{ color: colors.muted, fontSize: 11, fontWeight: '800', marginBottom: 8 }}>
+                REACT
+              </Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+                {REACTIONS.map((emoji) => (
+                  <TouchableOpacity
+                    key={emoji}
+                    onPress={() => handleReact(selectedActionMessage, emoji)}
+                    accessibilityLabel={`React ${emoji}`}
+                    style={styles.messageActionReaction}
+                  >
+                    <Text style={{ fontSize: 25 }}>{emoji}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <View style={[styles.messageActionPreview, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+                <Text numberOfLines={3} style={{ color: colors.text, fontSize: 14 }}>
+                  {selectedActionMessage.deleted
+                    ? 'This message was deleted'
+                    : selectedActionMessage.text || (selectedActionMessage.mediaType ? `📎 ${selectedActionMessage.mediaType} attachment` : 'Message')}
+                </Text>
+              </View>
+
+              {[
+                {
+                  label: 'Reply',
+                  icon: 'arrow-undo-outline',
+                  onPress: () => {
+                    setReplyTo(selectedActionMessage);
+                    setMessageActionsVisible(false);
+                  },
+                },
+                {
+                  label: 'Forward',
+                  icon: 'arrow-redo-outline',
+                  onPress: async () => {
+                    const message = selectedActionMessage;
+                    setMessageActionsVisible(false);
+                    setForwardingMsg(message);
+                    try {
+                      const result = await api.get('/conversations');
+                      setAllConversations(result.conversations || []);
+                      setForwardModalVisible(true);
+                    } catch (error) {
+                      Alert.alert('Forward error', error.message);
+                    }
+                  },
+                },
+                ...(selectedActionMessage.text && !selectedActionMessage.deleted
+                  ? [{
+                      label: 'Copy',
+                      icon: 'copy-outline',
+                      onPress: async () => {
+                        try {
+                          await Clipboard.setStringAsync(selectedActionMessage.text);
+                          setMessageActionsVisible(false);
+                          Alert.alert('Copied', 'Message copied to clipboard.');
+                        } catch (error) {
+                          Alert.alert('Copy failed', error.message);
+                        }
+                      },
+                    }]
+                  : []),
+                ...(translatorEnabled && selectedActionMessage.text && !selectedActionMessage.deleted
+                  ? [{
+                      label: 'Translate',
+                      icon: 'language-outline',
+                      onPress: () => {
+                        const message = selectedActionMessage;
+                        setMessageActionsVisible(false);
+                        triggerTranslation(message, defaultLanguage);
+                      },
+                    }]
+                  : []),
+                ...(String(selectedActionMessage.sender?._id || selectedActionMessage.sender) === String(me._id) && !selectedActionMessage.deleted
+                  ? [
+                      {
+                        label: 'Edit',
+                        icon: 'pencil-outline',
+                        onPress: () => {
+                          setEditingMessage(selectedActionMessage);
+                          setText(selectedActionMessage.text || '');
+                          setMessageActionsVisible(false);
+                        },
+                      },
+                      {
+                        label: 'Delete',
+                        icon: 'trash-outline',
+                        destructive: true,
+                        onPress: () => {
+                          const message = selectedActionMessage;
+                          setMessageActionsVisible(false);
+                          Alert.alert('Delete message?', 'This message will be removed for everyone.', [
+                            { text: 'Cancel', style: 'cancel' },
+                            {
+                              text: 'Delete',
+                              style: 'destructive',
+                              onPress: async () => {
+                                try {
+                                  await api.del(`/messages/${message._id}`);
+                                  setMessages((current) => current?.map((item) =>
+                                    item._id === message._id
+                                      ? { ...item, deleted: true, text: '', mediaUrl: '' }
+                                      : item
+                                  ));
+                                } catch (error) {
+                                  Alert.alert('Delete failed', error.message);
+                                }
+                              },
+                            },
+                          ]);
+                        },
+                      },
+                    ]
+                  : []),
+              ].map((action) => (
+                <TouchableOpacity
+                  key={action.label}
+                  onPress={action.onPress}
+                  style={[styles.messageActionRow, { borderTopColor: colors.border }]}
+                >
+                  <Ionicons
+                    name={action.icon}
+                    size={20}
+                    color={action.destructive ? colors.danger : colors.text}
+                    style={{ marginRight: 14 }}
+                  />
+                  <Text style={{ color: action.destructive ? colors.danger : colors.text, fontSize: 15, fontWeight: '600' }}>
+                    {action.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+      </Modal>
+
       {/* Attachment Sheet Modal */}
       <Modal visible={attachSheetVisible} transparent animationType="fade">
         <TouchableOpacity
@@ -1719,6 +1830,41 @@ export function ChatScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
+  messageActionOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.58)',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 12,
+    paddingBottom: 20,
+  },
+  messageActionSheet: {
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+    borderWidth: 1,
+    elevation: 12,
+  },
+  messageActionReaction: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    backgroundColor: 'rgba(128,128,128,0.12)',
+  },
+  messageActionPreview: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 11,
+    marginBottom: 4,
+  },
+  messageActionRow: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.65)',

@@ -10,6 +10,7 @@ import {
   Dimensions,
   Modal,
   ScrollView,
+  StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -30,6 +31,8 @@ function PostCard({ post, navigation, onDeleted, isActive = false }) {
   const [p, setP] = useState(post);
   const [page, setPage] = useState(0);
   const [fullscreenVideo, setFullscreenVideo] = useState(null);
+  const [postOptionsVisible, setPostOptionsVisible] = useState(false);
+  const [savingPost, setSavingPost] = useState(false);
   const [shareToUserModal, setShareToUserModal] = useState(false);
   const [conversations, setConversations] = useState([]);
   const [sendingPost, setSendingPost] = useState(false);
@@ -70,12 +73,17 @@ function PostCard({ post, navigation, onDeleted, isActive = false }) {
   };
 
   const toggleSave = async () => {
+    if (savingPost) return;
     const saved = !p.saved;
     setP((x) => ({ ...x, saved }));
+    setSavingPost(true);
     try {
       saved ? await api.post(`/posts/${p._id}/save`) : await api.del(`/posts/${p._id}/save`);
-    } catch {
+    } catch (e) {
       setP((x) => ({ ...x, saved: !saved }));
+      Alert.alert('Could not save post', e.message || 'Please try again.');
+    } finally {
+      setSavingPost(false);
     }
   };
 
@@ -127,40 +135,40 @@ function PostCard({ post, navigation, onDeleted, isActive = false }) {
     }
   };
 
-  const more = () => {
-    const mine = p.author._id === user._id;
-    Alert.alert('Post options', undefined, [
-      mine
-        ? {
-            text: 'Delete post',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                await api.del(`/posts/${p._id}`);
-                onDeleted?.(p._id);
-              } catch (e) {
-                Alert.alert('Oops', e.message);
-              }
-            },
-          }
-        : {
-            text: 'Report post',
-            onPress: () =>
-              Alert.alert(
-                'Report post',
-                'Why are you reporting this?',
-                ['Spam', 'Inappropriate content', 'Harassment'].map((reason) => ({
-                  text: reason,
-                  onPress: () =>
-                    api
-                      .post(`/posts/${p._id}/report`, { reason })
-                      .then(() => Alert.alert('Thanks', 'We will review this post.'))
-                      .catch((e) => Alert.alert('Oops', e.message)),
-                })).concat([{ text: 'Cancel', style: 'cancel' }])
-              ),
-          },
-      { text: 'Send to friend', onPress: openSendToUserModal },
+  const more = () => setPostOptionsVisible(true);
+
+  const reportPost = () => {
+    setPostOptionsVisible(false);
+    Alert.alert(
+      'Report post',
+      'Why are you reporting this?',
+      ['Spam', 'Inappropriate content', 'Harassment'].map((reason) => ({
+        text: reason,
+        onPress: () =>
+          api
+            .post(`/posts/${p._id}/report`, { reason })
+            .then(() => Alert.alert('Thanks', 'We will review this post.'))
+            .catch((e) => Alert.alert('Report failed', e.message)),
+      })).concat([{ text: 'Cancel', style: 'cancel' }])
+    );
+  };
+
+  const deletePost = () => {
+    setPostOptionsVisible(false);
+    Alert.alert('Delete post?', 'This post will be removed.', [
       { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await api.del(`/posts/${p._id}`);
+            onDeleted?.(p._id);
+          } catch (e) {
+            Alert.alert('Delete failed', e.message);
+          }
+        },
+      },
     ]);
   };
 
@@ -180,6 +188,7 @@ function PostCard({ post, navigation, onDeleted, isActive = false }) {
     );
 
   const overlay = FILTERS[p.filter];
+  const isMine = String(p.author?._id) === String(user?._id);
 
   return (
     <View style={{ marginBottom: 20 }}>
@@ -196,7 +205,7 @@ function PostCard({ post, navigation, onDeleted, isActive = false }) {
           </View>
         </TouchableOpacity>
         <TouchableOpacity onPress={more} hitSlop={12} style={{ padding: 4 }}>
-          <Ionicons name="ellipsis-horizontal" size={22} color={colors.text} />
+          <Ionicons name="ellipsis-vertical" size={21} color={colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -284,7 +293,7 @@ function PostCard({ post, navigation, onDeleted, isActive = false }) {
 
         <View style={{ flex: 1 }} />
 
-        <TouchableOpacity onPress={toggleSave} hitSlop={8}>
+        <TouchableOpacity onPress={toggleSave} disabled={savingPost} hitSlop={8}>
           <Ionicons name={p.saved ? 'bookmark' : 'bookmark-outline'} size={25} color={p.saved ? colors.primary : colors.text} />
         </TouchableOpacity>
       </View>
@@ -349,6 +358,108 @@ function PostCard({ post, navigation, onDeleted, isActive = false }) {
           {timeAgo(p.createdAt).toUpperCase()}
         </Text>
       </View>
+
+      {/* Instagram-style post options */}
+      <Modal
+        visible={postOptionsVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPostOptionsVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.58)', justifyContent: 'flex-end' }}>
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => setPostOptionsVisible(false)}
+            style={{ ...StyleSheet.absoluteFillObject }}
+          />
+          <View
+            style={{
+              backgroundColor: colors.bg,
+              borderTopLeftRadius: 22,
+              borderTopRightRadius: 22,
+              paddingHorizontal: 18,
+              paddingTop: 12,
+              paddingBottom: 28,
+              borderTopWidth: 1,
+              borderColor: colors.border,
+            }}
+          >
+            <View style={{ width: 38, height: 4, borderRadius: 2, backgroundColor: colors.muted, opacity: 0.45, alignSelf: 'center', marginBottom: 16 }} />
+            <Text style={{ color: colors.text, fontSize: 17, fontWeight: '800', marginBottom: 8 }}>Post options</Text>
+
+            {[
+              {
+                label: p.saved ? 'Remove from saved' : 'Save',
+                icon: p.saved ? 'bookmark' : 'bookmark-outline',
+                onPress: () => {
+                  setPostOptionsVisible(false);
+                  toggleSave();
+                },
+                disabled: savingPost,
+              },
+              {
+                label: 'Send to',
+                icon: 'paper-plane-outline',
+                onPress: () => {
+                  setPostOptionsVisible(false);
+                  openSendToUserModal();
+                },
+              },
+              {
+                label: 'Share...',
+                icon: 'share-outline',
+                onPress: () => {
+                  setPostOptionsVisible(false);
+                  shareExternally();
+                },
+              },
+              ...(isMine
+                ? [{
+                    label: 'Delete',
+                    icon: 'trash-outline',
+                    destructive: true,
+                    onPress: deletePost,
+                  }]
+                : [{
+                    label: 'Report',
+                    icon: 'flag-outline',
+                    destructive: true,
+                    onPress: reportPost,
+                  }]),
+            ].map((option) => (
+              <TouchableOpacity
+                key={option.label}
+                onPress={option.onPress}
+                disabled={option.disabled}
+                style={{
+                  minHeight: 52,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  borderBottomWidth: 0.5,
+                  borderBottomColor: colors.border,
+                  opacity: option.disabled ? 0.5 : 1,
+                }}
+              >
+                <Ionicons
+                  name={option.icon}
+                  size={22}
+                  color={option.destructive ? colors.danger : option.label === 'Save' || option.label === 'Remove from saved' ? colors.primary : colors.text}
+                  style={{ width: 34 }}
+                />
+                <Text style={{ color: option.destructive ? colors.danger : colors.text, fontSize: 15, fontWeight: '600' }}>
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              onPress={() => setPostOptionsVisible(false)}
+              style={{ alignItems: 'center', paddingTop: 15 }}
+            >
+              <Text style={{ color: colors.muted, fontSize: 15, fontWeight: '700' }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Send to Another User Modal */}
       <Modal visible={shareToUserModal} transparent animationType="slide">
