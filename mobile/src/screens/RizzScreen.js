@@ -143,7 +143,7 @@ function ResponseCard({ text, index, colors, onInsert }) {
 export default function RizzScreen({ navigation, route }) {
   const { colors } = useTheme();
   const initialIncoming = route.params?.incomingMessage || '';
-  const onPickReply = route.params?.onSelectReply;
+  const targetChatKey = route.params?.targetChatKey;
 
   const [messages, setMessages] = useState([]);
   const [style, setStyle] = useState('smooth');
@@ -462,14 +462,14 @@ export default function RizzScreen({ navigation, route }) {
                       text={r}
                       index={i}
                       colors={colors}
-                      onInsert={
-                        onPickReply
-                          ? (chosen) => {
-                              onPickReply(chosen);
-                              navigation.goBack();
-                            }
-                          : null
-                      }
+                      onInsert={targetChatKey
+                        ? (chosen) => navigation.navigate({
+                            name: 'Chat',
+                            key: targetChatKey,
+                            params: { draftReply: chosen },
+                            merge: true,
+                          })
+                        : null}
                     />
                   ))}
 

@@ -506,6 +506,7 @@ export function ChatScreen({ navigation, route }) {
   const otherUser = route.params.user;
   const passedConvo = route.params.conversation;
   const passedConvoId = route.params.conversationId || passedConvo?._id;
+  const draftReply = route.params.draftReply;
 
   const { colors } = useTheme();
   const { user: me } = useAuth();
@@ -603,6 +604,12 @@ export function ChatScreen({ navigation, route }) {
   useEffect(() => {
     loadThread();
   }, [loadThread]);
+
+  useEffect(() => {
+    if (typeof draftReply !== 'string') return;
+    setText(draftReply);
+    navigation.setParams({ draftReply: undefined });
+  }, [draftReply, navigation]);
 
   // Socket setup
   useEffect(() => {
@@ -911,9 +918,7 @@ export function ChatScreen({ navigation, route }) {
     const lastOtherMsg = [...(messages || [])].reverse().find((m) => String(m.sender?._id || m.sender) !== String(me._id));
     navigation.navigate('Rizz', {
       incomingMessage: lastOtherMsg?.text || '',
-      onSelectReply: (replyText) => {
-        setText(replyText);
-      },
+      targetChatKey: route.key,
     });
   };
 
