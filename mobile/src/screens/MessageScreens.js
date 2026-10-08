@@ -18,6 +18,8 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Audio } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
+import * as MediaLibrary from 'expo-media-library';
+import * as FileSystem from 'expo-file-system';
 import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -178,6 +180,13 @@ export function InboxScreen({ navigation }) {
         <Text style={{ flex: 1, color: colors.text, fontSize: 20, fontWeight: '800', marginLeft: 8 }}>
           Messages & Groups
         </Text>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('SavedSnaps')}
+          accessibilityLabel="Saved Snaps"
+          style={{ padding: 8, marginRight: 4 }}
+        >
+          <Ionicons name="bookmark-outline" size={21} color={colors.primary} />
+        </TouchableOpacity>
         <TouchableOpacity
           onPress={openCreateGroupModal}
           style={{
@@ -469,6 +478,102 @@ export function InboxScreen({ navigation }) {
   );
 }
 
+export function SavedSnapsScreen({ navigation }) {
+  const { colors } = useTheme();
+  const { user } = useAuth();
+  const [snaps, setSnaps] = useState(null);
+  const [error, setError] = useState(null);
+  const [activeSnap, setActiveSnap] = useState(null);
+
+  const loadSnaps = useCallback(async () => {
+    setError(null);
+    try {
+      const result = await api.get('/messages/saved-snaps');
+      setSnaps(result.snaps || []);
+    } catch (e) {
+      setError(e.message);
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => { loadSnaps(); }, [loadSnaps]));
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
+      <View style={{ height: 54, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 6 }}>
+          <Ionicons name="chevron-back" size={26} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={{ flex: 1, color: colors.text, fontSize: 19, fontWeight: '800', marginLeft: 8 }}>Saved Snaps</Text>
+        <Ionicons name="lock-closed" size={16} color={palette.gold} />
+        <Text style={{ color: palette.gold, fontSize: 11, fontWeight: '800', marginLeft: 4 }}>PREMIUM</Text>
+      </View>
+      {!user?.isPremium ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 }}>
+          <Ionicons name="diamond" size={42} color={palette.gold} />
+          <Text style={{ color: colors.text, fontSize: 18, fontWeight: '800', marginTop: 14 }}>Premium feature</Text>
+          <Text style={{ color: colors.muted, textAlign: 'center', marginTop: 8 }}>Upgrade to revisit and save View Once snaps for 24 hours.</Text>
+          <GradientButton title="Explore Premium" onPress={() => navigation.navigate('Premium')} style={{ marginTop: 18 }} />
+        </View>
+      ) : error ? (
+        <ErrorState message={error} onRetry={loadSnaps} />
+      ) : !snaps ? (
+        <Loading text="Loading saved snaps..." />
+      ) : (
+        <FlatList
+          data={snaps}
+          numColumns={2}
+          keyExtractor={(snap) => snap._id}
+          contentContainerStyle={{ padding: 10, flexGrow: 1 }}
+          columnWrapperStyle={{ justifyContent: 'space-between' }}
+          ListEmptyComponent={<Empty icon="🔒" text="Snaps you save will appear here for 24 hours." />}
+          renderItem={({ item: snap }) => {
+            const minutesLeft = Math.max(0, Math.ceil((new Date(snap.snapReplayUntil).getTime() - Date.now()) / 60000));
+            const hoursLeft = Math.floor(minutesLeft / 60);
+            const expiryLabel = hoursLeft
+              ? `Expires in ${hoursLeft}h ${minutesLeft % 60}m`
+              : `Expires in ${minutesLeft} min`;
+            return (
+              <TouchableOpacity
+                onPress={() => setActiveSnap(snap)}
+                style={{ width: '48.5%', marginBottom: 10, borderRadius: 14, overflow: 'hidden', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
+              >
+                {snap.mediaType === 'video' ? (
+                  <View style={{ height: 170, alignItems: 'center', justifyContent: 'center', backgroundColor: '#171717' }}>
+                    <Ionicons name="play-circle" size={48} color="#fff" />
+                  </View>
+                ) : (
+                  <Image source={{ uri: snap.mediaUrl }} style={{ height: 170, width: '100%' }} resizeMode="cover" />
+                )}
+                <View style={{ padding: 9 }}>
+                  <Text numberOfLines={1} style={{ color: colors.text, fontWeight: '700', fontSize: 12 }}>
+                    {snap.sender?.username || 'Saved snap'}
+                  </Text>
+                  <Text style={{ color: colors.muted, fontSize: 10, marginTop: 3 }}>{expiryLabel}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          }}
+        />
+      )}
+      <Modal visible={!!activeSnap} transparent animationType="fade" onRequestClose={() => setActiveSnap(null)}>
+        <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+          <TouchableOpacity onPress={() => setActiveSnap(null)} style={{ position: 'absolute', top: 48, right: 18, zIndex: 2, padding: 10 }}>
+            <Ionicons name="close" size={30} color="#fff" />
+          </TouchableOpacity>
+          {activeSnap?.mediaType === 'video' ? (
+            <InlineVideoPlayer source={{ uri: activeSnap.mediaUrl }} style={{ width: '100%', height: '80%' }} autoPlay />
+          ) : activeSnap?.mediaUrl ? (
+            <Image source={{ uri: activeSnap.mediaUrl }} style={{ width: '100%', height: '80%' }} resizeMode="contain" />
+          ) : null}
+          <Text style={{ color: '#fff', position: 'absolute', bottom: 30, fontWeight: '700' }}>
+            Available until {activeSnap?.snapReplayUntil ? new Date(activeSnap.snapReplayUntil).toLocaleString() : 'the replay window ends'}
+          </Text>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
 function VoiceBubble({ uri, color }) {
   const [sound, setSound] = useState(null);
   const [playing, setPlaying] = useState(false);
@@ -556,9 +661,13 @@ export function ChatScreen({ navigation, route }) {
   const [activeSnap, setActiveSnap] = useState(null);
   const [snapCountdown, setSnapCountdown] = useState(10);
   const snapInterval = useRef(null);
+  const lastSnapTapAt = useRef(0);
+  const [savingSnap, setSavingSnap] = useState(false);
 
   const listRef = useRef();
   const typingTimer = useRef();
+
+  useEffect(() => () => clearInterval(snapInterval.current), []);
 
   const isGroup = conversation?.type === 'group';
   const chatTitle = isGroup
@@ -893,15 +1002,41 @@ export function ChatScreen({ navigation, route }) {
   };
 
   // Snap / View Once viewer
-  const openSnap = (m) => {
-    if (m.snapBurned || m.snapOpened) {
+  const finishSnap = async (snap) => {
+    clearInterval(snapInterval.current);
+    if (!snap.replay) {
+      try {
+        await api.post(`/messages/${snap._id}/burn-snap`);
+      } catch (e) {
+        Alert.alert('Snap update failed', e.message);
+      }
+      setMessages((curr) =>
+        curr?.map((x) => (x._id === snap._id ? { ...x, snapOpened: true, snapBurned: true, mediaUrl: '' } : x))
+      );
+    }
+    setActiveSnap(null);
+  };
+
+  const openSnap = async (m) => {
+    const replayAllowed = me?.isPremium
+      && (m.snapBurned || m.snapOpened)
+      && m.snapReplayUntil
+      && new Date(m.snapReplayUntil).getTime() > Date.now();
+    if ((m.snapBurned || m.snapOpened) && !replayAllowed) {
       return Alert.alert('Media Expired', 'This View Once media has already been opened and disappeared.');
     }
-    setActiveSnap(m);
+    let result;
+    try {
+      result = await api.post(`/messages/${m._id}/open-snap`);
+    } catch (e) {
+      return Alert.alert('Could not open snap', e.message);
+    }
+    const snap = { ...m, ...(result.message || {}), mediaUrl: result.message?.mediaUrl || m.mediaUrl, replay: !!result.replay };
+    setActiveSnap(snap);
+    setMessages((curr) => curr?.map((x) => x._id === m._id ? { ...x, ...(result.message || {}) } : x));
     const isViewOnce = m.viewOnce || m.snapTimer === 1;
     const timer = isViewOnce ? 15 : Number(m.snapTimer || 10);
     setSnapCountdown(timer);
-    api.post(`/messages/${m._id}/open-snap`).catch(() => {});
     clearInterval(snapInterval.current);
     let timeLeft = timer;
     snapInterval.current = setInterval(() => {
@@ -909,13 +1044,54 @@ export function ChatScreen({ navigation, route }) {
       setSnapCountdown(timeLeft);
       if (timeLeft <= 0) {
         clearInterval(snapInterval.current);
-        api.post(`/messages/${m._id}/burn-snap`).catch(() => {});
-        setMessages((curr) =>
-          curr?.map((x) => (x._id === m._id ? { ...x, snapOpened: true, snapBurned: true, mediaUrl: '' } : x))
-        );
-        setActiveSnap(null);
+        finishSnap(snap);
       }
     }, 1000);
+  };
+
+  const saveActiveSnap = async () => {
+    if (!activeSnap || !(activeSnap.viewOnce || activeSnap.snapTimer === 1)) return;
+    if (!me?.isPremium) {
+      Alert.alert('Premium feature', 'Upgrade to Premium to save View Once snaps.');
+      return;
+    }
+    if (savingSnap) return;
+    setSavingSnap(true);
+    let savedInApp = false;
+    try {
+      await api.post(`/messages/${activeSnap._id}/save-snap`);
+      savedInApp = true;
+      setMessages((curr) => curr?.map((x) => x._id === activeSnap._id
+        ? { ...x, snapSavedBy: [...new Set([...(x.snapSavedBy || []).map(String), String(me._id)])] }
+        : x));
+      const permission = await MediaLibrary.requestPermissionsAsync(true);
+      if (!permission.granted) {
+        Alert.alert('Saved in Saved Snaps', 'Gallery permission was not granted, so no device copy was created.');
+        return;
+      }
+      if (!FileSystem.cacheDirectory) throw new Error('Device storage is unavailable.');
+      const extension = activeSnap.mediaType === 'video' ? 'mp4' : 'jpg';
+      const localFile = `${FileSystem.cacheDirectory}view-once-${activeSnap._id}.${extension}`;
+      const download = await FileSystem.downloadAsync(activeSnap.mediaUrl, localFile);
+      await MediaLibrary.saveToLibraryAsync(download.uri);
+      Alert.alert('Snap saved', 'The snap is in Saved Snaps and your device gallery.');
+    } catch (e) {
+      Alert.alert(savedInApp ? 'Saved in Saved Snaps' : 'Could not save snap', savedInApp
+        ? `The gallery copy could not be created: ${e.message}`
+        : e.message);
+    } finally {
+      setSavingSnap(false);
+    }
+  };
+
+  const handleSnapMediaTouch = () => {
+    const now = Date.now();
+    if (now - lastSnapTapAt.current < 350) {
+      lastSnapTapAt.current = 0;
+      saveActiveSnap();
+    } else {
+      lastSnapTapAt.current = now;
+    }
   };
 
   const filteredMessages = (messages || []).filter((m) => {
@@ -1042,6 +1218,13 @@ export function ChatScreen({ navigation, route }) {
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
             renderItem={({ item: m }) => {
               const mine = String(m.sender?._id || m.sender) === String(me._id);
+              const canReplaySnap = !!(
+                me?.isPremium
+                && (m.viewOnce || m.snapTimer === 1)
+                && m.snapReplayUntil
+                && new Date(m.snapReplayUntil).getTime() > Date.now()
+              );
+              const snapIsSpent = (m.snapBurned || m.snapOpened) && !canReplaySnap;
               const bubbleBg = mine ? colors.bubbleMine : colors.card;
               const textColor = mine ? '#fff' : colors.text;
               const localTranslation = translations[m._id];
@@ -1112,17 +1295,17 @@ export function ChatScreen({ navigation, route }) {
                     {(m.isSnap || m.viewOnce) ? (
                       <TouchableOpacity
                         onPress={() => openSnap(m)}
-                        disabled={m.snapBurned || m.snapOpened}
+                        disabled={snapIsSpent}
                         style={{
                           flexDirection: 'row',
                           alignItems: 'center',
                           padding: 10,
-                          backgroundColor: (m.snapBurned || m.snapOpened)
+                          backgroundColor: snapIsSpent
                             ? 'rgba(0,0,0,0.35)'
                             : (m.viewOnce || m.snapTimer === 1 ? 'rgba(212,175,106,0.2)' : 'rgba(249,115,22,0.2)'),
                           borderRadius: 14,
                           borderWidth: 1,
-                          borderColor: (m.snapBurned || m.snapOpened)
+                          borderColor: snapIsSpent
                             ? 'rgba(255,255,255,0.1)'
                             : (m.viewOnce || m.snapTimer === 1 ? palette.gold : '#F97316'),
                         }}
@@ -1131,28 +1314,28 @@ export function ChatScreen({ navigation, route }) {
                           width: 36,
                           height: 36,
                           borderRadius: 18,
-                          backgroundColor: (m.snapBurned || m.snapOpened)
+                          backgroundColor: snapIsSpent
                             ? 'rgba(255,255,255,0.1)'
                             : (m.viewOnce || m.snapTimer === 1 ? palette.gold : '#F97316'),
                           alignItems: 'center',
                           justifyContent: 'center',
                         }}>
                           <Ionicons
-                            name={(m.snapBurned || m.snapOpened) ? "checkmark" : (m.viewOnce || m.snapTimer === 1 ? "eye" : "flame")}
+                            name={snapIsSpent ? "checkmark" : (m.viewOnce || m.snapTimer === 1 ? "eye" : "flame")}
                             size={20}
                             color="#fff"
                           />
                         </View>
                         <View style={{ marginLeft: 10 }}>
                           <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>
-                            {(m.snapBurned || m.snapOpened)
+                            {snapIsSpent
                               ? (m.viewOnce || m.snapTimer === 1 ? '👀 Opened (View Once)' : '🔥 Snap Burned & Expired')
-                              : (m.viewOnce || m.snapTimer === 1 ? '1️⃣ View Once Photo' : '🔥 Tap to View Snap')}
+                              : (canReplaySnap && (m.snapBurned || m.snapOpened) ? '↻ Replay View Once' : (m.viewOnce || m.snapTimer === 1 ? '1️⃣ View Once Photo' : '🔥 Tap to View Snap'))}
                           </Text>
                           <Text style={{ color: (m.snapBurned || m.snapOpened) ? '#94A3B8' : '#FDE68A', fontSize: 11, fontWeight: '600' }}>
-                            {(m.snapBurned || m.snapOpened)
+                            {snapIsSpent
                               ? 'Media disappeared'
-                              : (m.viewOnce || m.snapTimer === 1 ? 'Disappears after viewing' : `${m.snapTimer || 10}s timer`)}
+                              : (canReplaySnap && (m.snapBurned || m.snapOpened) ? 'Premium replay available for 24 hours' : (m.viewOnce || m.snapTimer === 1 ? 'Disappears after viewing' : `${m.snapTimer || 10}s timer`))}
                           </Text>
                         </View>
                       </TouchableOpacity>
@@ -1798,14 +1981,7 @@ export function ChatScreen({ navigation, route }) {
               </View>
 
               <TouchableOpacity
-                onPress={() => {
-                  clearInterval(snapInterval.current);
-                  api.post(`/messages/${activeSnap._id}/burn-snap`).catch(() => {});
-                  setMessages((curr) =>
-                    curr?.map((x) => (x._id === activeSnap._id ? { ...x, snapOpened: true, snapBurned: true, mediaUrl: '' } : x))
-                  );
-                  setActiveSnap(null);
-                }}
+                onPress={() => finishSnap(activeSnap)}
                 style={{
                   backgroundColor: 'rgba(255,255,255,0.25)',
                   paddingHorizontal: 14,
@@ -1817,11 +1993,18 @@ export function ChatScreen({ navigation, route }) {
               </TouchableOpacity>
             </View>
 
-            {activeSnap.mediaType === 'video' ? (
-              <InlineVideoPlayer source={{ uri: activeSnap.mediaUrl }} style={{ width: '100%', height: '80%' }} autoPlay />
-            ) : (
-              <Image source={{ uri: activeSnap.mediaUrl }} style={{ width: '100%', height: '80%', resizeMode: 'contain' }} />
-            )}
+            <View onTouchEnd={handleSnapMediaTouch} style={{ width: '100%', height: '80%', justifyContent: 'center' }}>
+              {activeSnap.mediaType === 'video' ? (
+                <InlineVideoPlayer source={{ uri: activeSnap.mediaUrl }} style={{ width: '100%', height: '100%' }} autoPlay />
+              ) : (
+                <Image source={{ uri: activeSnap.mediaUrl }} style={{ width: '100%', height: '100%', resizeMode: 'contain' }} />
+              )}
+            </View>
+            {activeSnap.viewOnce || activeSnap.snapTimer === 1 ? (
+              <Text style={{ position: 'absolute', bottom: 30, color: '#fff', fontWeight: '700', backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 18 }}>
+                {savingSnap ? 'Saving...' : me?.isPremium ? 'Double-tap to save to Saved Snaps and gallery' : 'Premium: double-tap to save'}
+              </Text>
+            ) : null}
           </View>
         </Modal>
       )}

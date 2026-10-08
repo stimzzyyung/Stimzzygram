@@ -341,12 +341,15 @@ exports.react = asyncHandler(async (req, res) => {
 });
 
 exports.remove = asyncHandler(async (req, res) => {
-  const msg = await Message.findOne({ _id: req.params.id, sender: req.user._id });
+  const msg = await Message.findOne({ _id: req.params.id, sender: req.user._id }).select('+snapReplayUrl');
   if (!msg) throw httpError(404, 'Message not found.');
 
   msg.deleted = true;
   msg.text = '';
   msg.mediaUrl = undefined;
+  msg.snapReplayUrl = undefined;
+  msg.snapReplayUntil = undefined;
+  msg.snapSavedBy = [];
   await msg.save();
 
   await broadcastToConvo(msg.conversation, 'message:update', msg);
@@ -354,31 +357,121 @@ exports.remove = asyncHandler(async (req, res) => {
 });
 
 exports.openSnap = asyncHandler(async (req, res) => {
-  const msg = await Message.findById(req.params.id);
+  const msg = await Message.findById(req.params.id).select('+snapReplayUrl');
   if (!msg) throw httpError(404, 'Snap not found.');
   if (!msg.isSnap && !msg.viewOnce) throw httpError(400, 'This message is not a snap or view-once media.');
-  if (msg.snapBurned) throw httpError(410, 'This view-once snap has already expired and burned.');
+  const conversation = await Conversation.findOne({ _id: msg.conversation, participants: req.user._id }).select('_id');
+  if (!conversation) throw httpError(404, 'Snap not found.');
+
+  const isViewOnce = msg.viewOnce || msg.snapTimer === 1;
+  if (msg.snapBurned) {
+    if (!isViewOnce || !req.user.isPremium) {
+      throw httpError(410, 'This view-once snap has already expired and burned.');
+    }
+    if (!msg.snapReplayUntil || msg.snapReplayUntil <= new Date() || !msg.snapReplayUrl) {
+      throw httpError(410, 'The Premium replay window for this snap has expired.');
+    }
+    const replayMessage = msg.toObject();
+    delete replayMessage.snapReplayUrl;
+    replayMessage.mediaUrl = msg.snapReplayUrl;
+    return res.json({ success: true, replay: true, message: replayMessage });
+  }
+
+  if (isViewOnce && msg.snapOpened) {
+    if (
+      !req.user.isPremium
+      || !msg.snapReplayUntil
+      || msg.snapReplayUntil <= new Date()
+      || !(msg.snapReplayUrl || msg.mediaUrl)
+    ) {
+      throw httpError(409, 'This View Once snap is already open.');
+    }
+    const replayMessage = msg.toObject();
+    delete replayMessage.snapReplayUrl;
+    replayMessage.mediaUrl = msg.snapReplayUrl || msg.mediaUrl;
+    return res.json({ success: true, replay: true, message: replayMessage });
+  }
+  if (!msg.mediaUrl) throw httpError(410, 'Snap media is no longer available.');
 
   msg.snapOpened = true;
-  msg.snapOpenedAt = new Date();
+  const openedAt = new Date();
+  msg.snapOpenedAt = msg.snapOpenedAt || openedAt;
+  if (isViewOnce && req.user.isPremium) {
+    msg.snapReplayUntil = new Date(openedAt.getTime() + 24 * 60 * 60 * 1000);
+  } else if (isViewOnce) {
+    const sender = await User.findById(msg.sender).select('isPremium');
+    if (sender?.isPremium) msg.snapReplayUntil = new Date(openedAt.getTime() + 24 * 60 * 60 * 1000);
+  }
+  if (isViewOnce && msg.snapReplayUntil) msg.snapReplayUrl = msg.mediaUrl;
   if (!msg.readBy.some((id) => String(id) === String(req.user._id))) {
     msg.readBy.push(req.user._id);
   }
   await msg.save();
 
-  await broadcastToConvo(msg.conversation, 'message:update', msg);
-  res.json({ success: true, message: msg });
+  const responseMessage = msg.toObject();
+  delete responseMessage.snapReplayUrl;
+  await broadcastToConvo(msg.conversation, 'message:update', responseMessage);
+  res.json({ success: true, replay: false, message: responseMessage });
 });
 
 exports.burnSnap = asyncHandler(async (req, res) => {
   const msg = await Message.findById(req.params.id);
   if (!msg) throw httpError(404, 'Snap not found.');
+  const conversation = await Conversation.findOne({ _id: msg.conversation, participants: req.user._id }).select('_id');
+  if (!conversation) throw httpError(404, 'Snap not found.');
+  if (msg.snapBurned) return res.json({ success: true });
+
+  if (msg.viewOnce && msg.snapReplayUntil > new Date() && msg.mediaUrl) {
+    msg.snapReplayUrl = msg.mediaUrl;
+  }
   msg.snapBurned = true;
   msg.mediaUrl = '';
   await msg.save();
 
   await broadcastToConvo(msg.conversation, 'message:update', msg);
   res.json({ success: true, message: msg });
+});
+
+exports.saveSnap = asyncHandler(async (req, res) => {
+  if (!req.user.isPremium) throw httpError(403, 'Saving View Once snaps is a Premium feature.');
+  const msg = await Message.findById(req.params.id).select('+snapReplayUrl');
+  if (!msg || !(msg.viewOnce || msg.snapTimer === 1)) throw httpError(404, 'View Once snap not found.');
+  const conversation = await Conversation.findOne({ _id: msg.conversation, participants: req.user._id }).select('_id');
+  if (!conversation) throw httpError(404, 'View Once snap not found.');
+  const replayUrl = msg.snapReplayUrl || (!msg.snapBurned && msg.snapOpened ? msg.mediaUrl : '');
+  if (!msg.snapReplayUntil || msg.snapReplayUntil <= new Date() || !replayUrl) {
+    throw httpError(410, 'This snap is no longer available to save.');
+  }
+
+  msg.snapReplayUrl = replayUrl;
+  if (!msg.snapSavedBy.some((userId) => String(userId) === String(req.user._id))) {
+    msg.snapSavedBy.push(req.user._id);
+  }
+  await msg.save();
+  res.json({ success: true });
+});
+
+exports.savedSnaps = asyncHandler(async (req, res) => {
+  if (!req.user.isPremium) throw httpError(403, 'Saved Snaps is a Premium feature.');
+  const snaps = await Message.find({
+    snapSavedBy: req.user._id,
+    viewOnce: true,
+    snapBurned: true,
+    snapReplayUntil: { $gt: new Date() },
+  })
+    .select('+snapReplayUrl')
+    .sort('-snapOpenedAt')
+    .populate('sender', USER_BRIEF);
+
+  const savedSnaps = snaps
+    .filter((snap) => snap.snapReplayUrl)
+    .map((snap) => {
+      const savedSnap = snap.toObject();
+      savedSnap.mediaUrl = snap.snapReplayUrl;
+      delete savedSnap.snapReplayUrl;
+      return savedSnap;
+    });
+  res.json({ success: true, snaps: savedSnaps });
 });
 
 /** Group chat operations */

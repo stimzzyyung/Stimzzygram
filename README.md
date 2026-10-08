@@ -43,7 +43,8 @@ Stimzzygram/
 
 ### 6. 👀 View Once & Disappearing Media
 * **View Once Photo / Video**: Send photos and videos that can only be opened once.
-* **Auto-Burn Engine**: Once viewed and closed, media permanently burns, deletes the media URL from the server, and updates status to `👀 Opened (View Once) · Media disappeared`.
+* **Auto-Burn Engine**: Once viewed and closed, the media URL is removed from the chat and the status updates to `👀 Opened (View Once) · Media disappeared`; Premium replay copies remain available only during the 24-hour window.
+* **Premium Replay & Save**: Premium users can replay a received View Once snap for 24 hours, double-tap while viewing to save it in the app and device gallery, and revisit saved snaps from Inbox.
 * **Flexible Durations**: Choose between `👀 View Once`, `5s Disappearing`, and `10s Disappearing`.
 
 ### 7. 🤖 Dedicated AI Rizz Bot

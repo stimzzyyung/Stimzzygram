@@ -19,7 +19,7 @@ import VibesScreen from '../screens/VibesScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import CommentsScreen from '../screens/CommentsScreen';
 import { FollowListScreen, FollowRequestsScreen, HashtagScreen, PostDetailScreen, NotificationsScreen } from '../screens/ListScreens';
-import { InboxScreen, ChatScreen } from '../screens/MessageScreens';
+import { InboxScreen, ChatScreen, SavedSnapsScreen } from '../screens/MessageScreens';
 import RizzScreen from '../screens/RizzScreen';
 import { SettingsScreen, EditProfileScreen } from '../screens/SettingsScreens';
 import StoryViewerScreen from '../screens/StoryViewerScreen';
@@ -101,6 +101,7 @@ export default function Navigation() {
             <Stack.Screen name="Hashtag" component={HashtagScreen} />
             <Stack.Screen name="Inbox" component={InboxScreen} />
             <Stack.Screen name="Chat" component={ChatScreen} />
+            <Stack.Screen name="SavedSnaps" component={SavedSnapsScreen} />
             <Stack.Screen name="Notifications" component={NotificationsScreen} />
             <Stack.Screen name="Rizz" component={RizzScreen} options={{ animation: 'slide_from_bottom' }} />
             <Stack.Screen name="Settings" component={SettingsScreen} />

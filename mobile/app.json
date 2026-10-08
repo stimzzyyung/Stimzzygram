@@ -13,7 +13,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Take photos and videos to share.",
         "NSMicrophoneUsageDescription": "Record voice messages and videos.",
-        "NSPhotoLibraryUsageDescription": "Choose photos and videos to share."
+        "NSPhotoLibraryUsageDescription": "Choose photos and videos to share.",
+        "NSPhotoLibraryAddUsageDescription": "Save Premium View Once snaps to your photo library."
       }
     },
     "android": {
@@ -33,6 +34,13 @@
         {
           "photosPermission": "Allow $(PRODUCT_NAME) to access your photos so you can share them.",
           "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera so you can take photos and videos."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos.",
+          "savePhotosPermission": "Allow $(PRODUCT_NAME) to save Premium View Once snaps to your photo library."
         }
       ],
       "expo-av"

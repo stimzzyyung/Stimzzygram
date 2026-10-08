@@ -27,6 +27,9 @@ const messageSchema = new Schema({
   snapOpened: { type: Boolean, default: false },
   snapOpenedAt: Date,
   snapBurned: { type: Boolean, default: false },
+  snapReplayUrl: { type: String, select: false },
+  snapReplayUntil: Date,
+  snapSavedBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   deleted: { type: Boolean, default: false },
 }, { timestamps: true });
 

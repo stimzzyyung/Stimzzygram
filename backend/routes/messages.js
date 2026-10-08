@@ -18,6 +18,7 @@ router.post('/translate', translationLimit, c.translate);
 router.post('/scheduled', c.schedule);
 router.post('/quick-share', upload.single('media'), c.quickShare);
 router.post('/forward', c.forward);
+router.get('/saved-snaps', c.savedSnaps);
 router.post('/', upload.single('media'), c.send);
 router.get('/with/:userId', c.thread);
 router.get('/conversation/:convoId', c.thread);
@@ -26,6 +27,7 @@ router.put('/:id/edit', c.edit);
 router.post('/:id/react', c.react);
 router.post('/:id/open-snap', c.openSnap);
 router.post('/:id/burn-snap', c.burnSnap);
+router.post('/:id/save-snap', c.saveSnap);
 router.delete('/:id', c.remove);
 
 module.exports = router;
