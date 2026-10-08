@@ -5,6 +5,7 @@ const { sendDirect } = require('../controllers/messageController');
 const { emitTo } = require('./socket');
 
 let running = false;
+let timer = null;
 
 async function processDueMessages() {
   if (running) return;
@@ -23,6 +24,13 @@ async function processDueMessages() {
         { new: true, sort: { scheduledAt: 1, createdAt: 1 } },
       );
       if (!scheduled) break;
+
+      if (!scheduled.sender || !scheduled.recipient) {
+        scheduled.status = 'failed';
+        scheduled.error = 'Scheduled message is missing sender or recipient data.';
+        await scheduled.save();
+        continue;
+      }
 
       try {
         const sender = await User.findById(scheduled.sender);
@@ -61,9 +69,20 @@ async function processDueMessages() {
 }
 
 exports.start = () => {
-  processDueMessages().catch((error) => console.error('Scheduled message worker failed:', error));
-  const timer = setInterval(() => {
+  if (timer) return;
+
+  const tick = () => {
     processDueMessages().catch((error) => console.error('Scheduled message worker failed:', error));
-  }, 10 * 1000);
+  };
+
+  tick();
+  timer = setInterval(tick, 10 * 1000);
   timer.unref();
+};
+
+exports.stop = () => {
+  if (timer) {
+    clearInterval(timer);
+    timer = null;
+  }
 };
