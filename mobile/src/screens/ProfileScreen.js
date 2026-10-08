@@ -13,21 +13,24 @@ import AvatarCustomizerModal from '../components/AvatarCustomizerModal';
 const TABS = [{ k: 'posts', icon: 'grid-outline' }, { k: 'videos', icon: 'play-circle-outline' }, { k: 'saved', icon: 'bookmark-outline', mine: true }, { k: 'tagged', icon: 'pricetag-outline' }];
 
 export default function ProfileScreen({ navigation, route }) {
-  const { id, isTab } = route.params;
+  const { id, isTab } = route?.params || {};
   const { colors } = useTheme();
   const [u, setU] = useState(null); const [items, setItems] = useState(null); const [tab, setTab] = useState('posts');
   const [error, setError] = useState(null); const [refreshing, setRefreshing] = useState(false);
   const [customizerVisible, setCustomizerVisible] = useState(false);
 
-  const load = async (t = tab, refresh) => {
-    refresh && setRefreshing(true); setError(null);
+  const load = useCallback(async (t = tab, refresh) => {
+    if (!id) return;
+    if (refresh) setRefreshing(true);
+    setError(null);
     try {
       const { user } = await api.get(`/users/${id}`); setU(user);
       const c = await api.get(`/users/${user._id}/content?tab=${t}`); setItems(c.items);
     } catch (e) { setError(e.message); }
     setRefreshing(false);
-  };
-  useFocusEffect(useCallback(() => { load(); }, [id]));
+  }, [id, tab]);
+
+  useFocusEffect(useCallback(() => { load(); }, [load]));
   const changeTab = (k) => { setTab(k); setItems(null); load(k); };
 
   const toggleFollow = async () => {

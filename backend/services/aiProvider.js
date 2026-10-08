@@ -1,5 +1,5 @@
 const DEFAULT_MODELS = {
-  gemini: 'gemini-2.5-flash',
+  gemini: 'gemini-3.8-flash',
   anthropic: 'claude-haiku-4-5-20251001',
   openai: 'gpt-4o-mini',
   'openai-compatible': 'gpt-4o-mini',

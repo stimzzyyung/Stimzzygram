@@ -31,6 +31,7 @@ const Tab = createBottomTabNavigator();
 
 function OwnProfile(props) {
   const { user } = useAuth();
+  if (!user?._id) return null;
   return <ProfileScreen {...props} route={{ params: { id: user._id, isTab: true } }} />;
 }
 
