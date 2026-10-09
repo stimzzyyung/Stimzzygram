@@ -8,9 +8,12 @@ const DEFAULT_MODELS = {
 function providerError(provider, status, code) {
   const err = new Error('The AI provider could not complete this request.');
   err.status = 502;
+  err.providerStatus = status;
   console.error(`[AI] ${provider} request failed (HTTP ${status}${code ? `, ${code}` : ''}).`);
   return err;
 }
+
+const RETRYABLE_GEMINI_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
 
 async function readResponse(response, provider) {
   let data;
@@ -24,6 +27,27 @@ async function readResponse(response, provider) {
     throw providerError(provider, response.status, code);
   }
   return data;
+}
+
+async function requestGemini({ apiKey, model, contents, system, maxTokens, json, signal }) {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: system }] },
+      contents,
+      generationConfig: {
+        maxOutputTokens: maxTokens,
+        ...(model.startsWith('gemini-2.5-') ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+        ...(json ? { responseMimeType: 'application/json' } : {}),
+      },
+    }),
+    signal,
+  });
+  const data = await readResponse(response, 'gemini');
+  const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('').trim();
+  if (!text) throw providerError('gemini', response.status, 'empty_response');
+  return text;
 }
 
 exports.complete = async ({ purpose, system, messages, image, maxTokens = 1000, json = false }) => {
@@ -70,20 +94,25 @@ exports.complete = async ({ purpose, system, messages, image, maxTokens = 1000, 
         }
         return { role: message.role === 'assistant' ? 'model' : 'user', parts };
       });
-      response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: system }] },
-          contents,
-          generationConfig: {
-            maxOutputTokens: maxTokens,
-            ...(model.startsWith('gemini-2.5-') ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
-            ...(json ? { responseMimeType: 'application/json' } : {}),
-          },
-        }),
-        signal: controller.signal,
-      });
+      const fallbackModel = process.env.AI_GEMINI_FALLBACK_MODEL?.trim() || 'gemini-2.5-flash';
+      const models = [...new Set([model, fallbackModel])];
+      let lastError;
+      for (let modelIndex = 0; modelIndex < models.length; modelIndex += 1) {
+        const attempts = modelIndex === 0 ? 2 : 1;
+        for (let attempt = 0; attempt < attempts; attempt += 1) {
+          if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 1000 * (2 ** (attempt - 1))));
+          try {
+            return await requestGemini({
+              apiKey, model: models[modelIndex], contents, system, maxTokens, json, signal: controller.signal,
+            });
+          } catch (error) {
+            lastError = error;
+            if (!RETRYABLE_GEMINI_STATUSES.has(error.providerStatus)) throw error;
+            if (attempt < attempts - 1) continue;
+          }
+        }
+      }
+      throw lastError;
     } else if (provider === 'anthropic') {
       response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -121,11 +150,9 @@ exports.complete = async ({ purpose, system, messages, image, maxTokens = 1000, 
   }
 
   const data = await readResponse(response, provider);
-  const text = provider === 'gemini'
-    ? data.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('').trim()
-    : provider === 'anthropic'
-      ? data.content?.map((part) => part.text || '').join('').trim()
-      : data.choices?.[0]?.message?.content?.trim();
+  const text = provider === 'anthropic'
+    ? data.content?.map((part) => part.text || '').join('').trim()
+    : data.choices?.[0]?.message?.content?.trim();
   if (!text) throw providerError(provider, response.status, 'empty_response');
   return text;
 };
