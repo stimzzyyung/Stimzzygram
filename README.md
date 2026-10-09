@@ -106,7 +106,7 @@ npm run dev             # Server listens at http://localhost:5000
 #### Environment Variables (`backend/.env`):
 * `MONGO_URI` – MongoDB Atlas connection URI
 * `JWT_SECRET` – Secret for signing session tokens
-* `AI_API_KEY`, `AI_MODEL`, `AI_PROVIDER` – Optional API keys for AI Rizz Bot & translations (includes high-quality built-in fallbacks)
+* `AI_API_KEY`, `AI_MODEL`, `AI_PROVIDER` – Required to generate Rizz Bot replies and use AI translations; Rizz Bot reports a provider error instead of returning canned replies when AI is unavailable
 * `CLOUDINARY_*` – Optional cloud media storage (falls back to local `/uploads` if not configured)
 * `RESEND_API_KEY` – Optional API key for password reset OTP delivery (logs code to console in development)
 
