@@ -37,6 +37,7 @@ Stimzzygram/
 
 ### 5. Telegram-Style Messaging & Group Chats
 * **Direct & Group Chats**: 1-to-1 encrypted conversations and group chats with custom avatars, descriptions, admin privileges, member management, and permissions.
+* **Voice & Video Calls**: Start one-to-one voice and video calls from each direct chat, receive calls anywhere in the open app, and mute, toggle video, answer, decline, or end calls. Both people must be online; networks that block direct WebRTC connections may require a TURN relay.
 * **Rich Attachments**: Text, images, videos, voice recordings, and document/file uploads (PDF, DOCX, ZIP) up to 100MB with file size indicators.
 * **Chat Controls**: Quoted replies, emoji reactions, message editing (`[edited]`), message forwarding, deletion, and in-chat keyword search.
 * **Message Delivery Status**: 🕒 Sending, ✓ Sent, ✓✓ Delivered, ✓✓ (Gold) Read.
@@ -130,6 +131,7 @@ npx expo start -c
 
 * Open on Android: Press **`a`** (or scan QR code from Expo Go app).
 * Open on iOS: Press **`i`** (or scan QR code with Camera app).
+* **Voice/video calls require a custom native build and do not run in Expo Go.** Build and install the EAS preview app after adding the WebRTC plugin: `eas build -p android --profile preview` (or `eas build -p ios --profile production`).
 
 ---
 
