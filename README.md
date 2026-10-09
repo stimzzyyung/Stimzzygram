@@ -129,9 +129,7 @@ cp .env.example .env    # set EXPO_PUBLIC_API_URL to your computer's LAN IP
 npx expo start -c
 ```
 
-* Open on Android: Press **`a`** (or scan QR code from Expo Go app).
-* Open on iOS: Press **`i`** (or scan QR code with Camera app).
-* **Voice/video calls require a custom native build and do not run in Expo Go.** Build and install the EAS preview app after adding the WebRTC plugin: `eas build -p android --profile preview` (or `eas build -p ios --profile production`).
+* For standard Expo Go development, run `npx expo start` and scan its QR code. **Voice/video calls require the custom Expo development build and do not run in Expo Go.** Sign in to EAS with `npx eas-cli login`, build/install it with `npm run build:dev:android` or `npm run build:dev:ios`, then start Metro with `npm run start:dev-client`. Rebuild the native app whenever a native dependency or plugin changes.
 
 ---
 

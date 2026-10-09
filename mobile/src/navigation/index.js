@@ -81,7 +81,7 @@ export default function Navigation() {
   const theme = { ...base, colors: { ...base.colors, background: colors.bg, card: colors.bg, text: colors.text, border: colors.border, primary: colors.primary } };
   if (booting) return <View style={{ flex: 1, backgroundColor: colors.bg }}><Loading text="Loading..." /></View>;
   return (
-    <ChatCallProvider>
+    <ChatCallProvider key={user?._id || 'guest'}>
       <NavigationContainer theme={theme}>
         <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
           {!user ? (
