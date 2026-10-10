@@ -11,8 +11,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.stimzzyvibe.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "Take photos and videos to share, and make video calls.",
-        "NSMicrophoneUsageDescription": "Record voice messages and make voice and video calls.",
+        "NSCameraUsageDescription": "Take photos and videos to share.",
+        "NSMicrophoneUsageDescription": "Record voice messages and videos.",
         "NSPhotoLibraryUsageDescription": "Choose photos and videos to share.",
         "NSPhotoLibraryAddUsageDescription": "Save Premium View Once snaps to your photo library."
       }
@@ -43,14 +43,7 @@
           "savePhotosPermission": "Allow $(PRODUCT_NAME) to save Premium View Once snaps to your photo library."
         }
       ],
-      "expo-av",
-      [
-        "@config-plugins/react-native-webrtc",
-        {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to make video calls.",
-          "microphonePermission": "Allow $(PRODUCT_NAME) to make voice and video calls."
-        }
-      ]
+      "expo-av"
     ]
   }
 }

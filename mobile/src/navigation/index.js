@@ -20,7 +20,6 @@ import ProfileScreen from '../screens/ProfileScreen';
 import CommentsScreen from '../screens/CommentsScreen';
 import { FollowListScreen, FollowRequestsScreen, HashtagScreen, PostDetailScreen, NotificationsScreen } from '../screens/ListScreens';
 import { InboxScreen, ChatScreen, SavedSnapsScreen } from '../screens/MessageScreens';
-import { ChatCallProvider } from '../components/ChatCalls';
 import RizzScreen from '../screens/RizzScreen';
 import { SettingsScreen, EditProfileScreen } from '../screens/SettingsScreens';
 import StoryViewerScreen from '../screens/StoryViewerScreen';
@@ -81,40 +80,38 @@ export default function Navigation() {
   const theme = { ...base, colors: { ...base.colors, background: colors.bg, card: colors.bg, text: colors.text, border: colors.border, primary: colors.primary } };
   if (booting) return <View style={{ flex: 1, backgroundColor: colors.bg }}><Loading text="Loading..." /></View>;
   return (
-    <ChatCallProvider key={user?._id || 'guest'}>
-      <NavigationContainer theme={theme}>
-        <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
-          {!user ? (
-            <>
-              <Stack.Screen name="Welcome" component={WelcomeScreen} />
-              <Stack.Screen name="Login" component={LoginScreen} />
-              <Stack.Screen name="Register" component={RegisterScreen} />
-              <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
-              <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-            </>
-          ) : (
-            <>
-              <Stack.Screen name="Main" component={Main} />
-              <Stack.Screen name="Profile" component={ProfileScreen} />
-              <Stack.Screen name="Comments" component={CommentsScreen} />
-              <Stack.Screen name="PostDetail" component={PostDetailScreen} />
-              <Stack.Screen name="FollowList" component={FollowListScreen} />
-              <Stack.Screen name="FollowRequests" component={FollowRequestsScreen} />
-              <Stack.Screen name="Hashtag" component={HashtagScreen} />
-              <Stack.Screen name="Inbox" component={InboxScreen} />
-              <Stack.Screen name="Chat" component={ChatScreen} />
-              <Stack.Screen name="SavedSnaps" component={SavedSnapsScreen} />
-              <Stack.Screen name="Notifications" component={NotificationsScreen} />
-              <Stack.Screen name="Rizz" component={RizzScreen} options={{ animation: 'slide_from_bottom' }} />
-              <Stack.Screen name="Settings" component={SettingsScreen} />
-              <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-              <Stack.Screen name="Premium" component={PremiumScreen} />
-              <Stack.Screen name="Admin" component={AdminScreen} />
-              <Stack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ animation: 'fade', presentation: 'fullScreenModal' }} />
-            </>
-          )}
-        </Stack.Navigator>
-      </NavigationContainer>
-    </ChatCallProvider>
+    <NavigationContainer theme={theme}>
+      <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+        {!user ? (
+          <>
+            <Stack.Screen name="Welcome" component={WelcomeScreen} />
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Register" component={RegisterScreen} />
+            <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
+            <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+          </>
+        ) : (
+          <>
+            <Stack.Screen name="Main" component={Main} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="Comments" component={CommentsScreen} />
+            <Stack.Screen name="PostDetail" component={PostDetailScreen} />
+            <Stack.Screen name="FollowList" component={FollowListScreen} />
+            <Stack.Screen name="FollowRequests" component={FollowRequestsScreen} />
+            <Stack.Screen name="Hashtag" component={HashtagScreen} />
+            <Stack.Screen name="Inbox" component={InboxScreen} />
+            <Stack.Screen name="Chat" component={ChatScreen} />
+            <Stack.Screen name="SavedSnaps" component={SavedSnapsScreen} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
+            <Stack.Screen name="Rizz" component={RizzScreen} options={{ animation: 'slide_from_bottom' }} />
+            <Stack.Screen name="Settings" component={SettingsScreen} />
+            <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+            <Stack.Screen name="Premium" component={PremiumScreen} />
+            <Stack.Screen name="Admin" component={AdminScreen} />
+            <Stack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ animation: 'fade', presentation: 'fullScreenModal' }} />
+          </>
+        )}
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 }

@@ -1,12 +1,7 @@
 const sendVerificationCode = async (email, code) => {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
-  if (!apiKey) {
-    console.log(`\n==================================================`);
-    console.log(`[STIMZZYVIBE EMAIL] Verification Code for ${email}: [ ${code} ]`);
-    console.log(`==================================================\n`);
-    return;
-  }
+  const from = process.env.RESEND_FROM_EMAIL;
+  if (!apiKey || !from) throw new Error('Email delivery is not configured. Set RESEND_API_KEY and RESEND_FROM_EMAIL.');
 
   let response;
   try {
@@ -28,26 +23,18 @@ const sendVerificationCode = async (email, code) => {
       signal: AbortSignal.timeout(15000),
     });
   } catch (error) {
-    console.error('[Email] Resend request could not be completed:', error.message);
-    console.log(`[FALLBACK DEV] Verification code for ${email}: ${code}`);
-    return;
+    throw new Error(`Verification email delivery failed: ${error.message}`);
   }
 
   if (!response.ok) {
-    console.error(`[Email] Resend rejected the verification email (HTTP ${response.status}).`);
-    console.log(`[FALLBACK DEV] Verification code for ${email}: ${code}`);
+    throw new Error(`Verification email delivery failed (Resend HTTP ${response.status}).`);
   }
 };
 
 const sendPasswordResetOtp = async (email, code) => {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
-  if (!apiKey) {
-    console.log(`\n==================================================`);
-    console.log(`[STIMZZYVIBE EMAIL] Password Reset OTP for ${email}: [ ${code} ]`);
-    console.log(`==================================================\n`);
-    return;
-  }
+  const from = process.env.RESEND_FROM_EMAIL;
+  if (!apiKey || !from) throw new Error('Email delivery is not configured. Set RESEND_API_KEY and RESEND_FROM_EMAIL.');
 
   let response;
   try {
@@ -69,14 +56,11 @@ const sendPasswordResetOtp = async (email, code) => {
       signal: AbortSignal.timeout(15000),
     });
   } catch (error) {
-    console.error('[Email] Resend request could not be completed:', error.message);
-    console.log(`[FALLBACK DEV] Password reset OTP for ${email}: ${code}`);
-    return;
+    throw new Error(`Password reset email delivery failed: ${error.message}`);
   }
 
   if (!response.ok) {
-    console.error(`[Email] Resend rejected reset email (HTTP ${response.status}).`);
-    console.log(`[FALLBACK DEV] Password reset OTP for ${email}: ${code}`);
+    throw new Error(`Password reset email delivery failed (Resend HTTP ${response.status}).`);
   }
 };
 

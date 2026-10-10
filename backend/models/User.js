@@ -5,7 +5,6 @@ const userSchema = new Schema({
   username: { type: String, required: true, unique: true, lowercase: true, trim: true, match: /^[a-z0-9._]{3,30}$/ },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   password: { type: String, select: false },
-  googleId: { type: String, sparse: true },
   dateOfBirth: Date,
   country: { type: String, trim: true, maxlength: 80, default: 'Nigeria' },
   language: { type: String, trim: true, maxlength: 80, default: 'English' },

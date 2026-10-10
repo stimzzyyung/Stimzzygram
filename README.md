@@ -20,7 +20,7 @@ Stimzzygram/
 * **Profile Fields**: Full name, username, email, password, date of birth, country, language, and circular profile picture.
 * **Country & Language Mapping**: Selecting a country automatically selects its primary language (*Nigeria → English*, *France → French*, *Spain → Spanish*, *Germany → German*, *Brazil → Portuguese*, etc.).
 * **Searchable Language Dropdown**: Full support for international & African languages (English, French, Spanish, Portuguese, German, Arabic, Chinese, Japanese, Korean, Hindi, Yoruba, Igbo, Hausa, Swahili, etc.).
-* **Gmail Detection & Google Auth**: Detects Google/Gmail addresses in real time with 1-tap Google Authentication (never storing users' Gmail passwords).
+* **Email & Password Accounts**: Register with a unique username and email, verify the address with a one-time code, and log in with an email address or username.
 * **6-Digit Email OTP Recovery**:
   * Forgot Password → Enter email → 6-digit verification code with 15-minute expiration and rate limiting → Verify OTP → New Password & Confirm → Automatic login.
 
@@ -37,7 +37,6 @@ Stimzzygram/
 
 ### 5. Telegram-Style Messaging & Group Chats
 * **Direct & Group Chats**: 1-to-1 encrypted conversations and group chats with custom avatars, descriptions, admin privileges, member management, and permissions.
-* **Voice & Video Calls**: Start one-to-one voice and video calls from each direct chat, receive calls anywhere in the open app, and mute, toggle video, answer, decline, or end calls. Both people must be online; networks that block direct WebRTC connections may require a TURN relay.
 * **Rich Attachments**: Text, images, videos, voice recordings, and document/file uploads (PDF, DOCX, ZIP) up to 100MB with file size indicators.
 * **Chat Controls**: Quoted replies, emoji reactions, message editing (`[edited]`), message forwarding, deletion, and in-chat keyword search.
 * **Message Delivery Status**: 🕒 Sending, ✓ Sent, ✓✓ Delivered, ✓✓ (Gold) Read.
@@ -109,7 +108,7 @@ npm run dev             # Server listens at http://localhost:5000
 * `JWT_SECRET` – Secret for signing session tokens
 * `AI_API_KEY`, `AI_MODEL`, `AI_PROVIDER` – Required to generate Rizz Bot replies and use AI translations. Gemini retries transient errors and can use `AI_GEMINI_FALLBACK_MODEL`; it never returns canned replies.
 * `CLOUDINARY_*` – Optional cloud media storage (falls back to local `/uploads` if not configured)
-* `RESEND_API_KEY` – Optional API key for password reset OTP delivery (logs code to console in development)
+* `RESEND_API_KEY` and `RESEND_FROM_EMAIL` – Required Resend API key and sender address on a domain verified in Resend. Registration and password reset send real email codes; codes are never printed to the server log.
 
 Make yourself an admin (after registering in the app):
 ```bash
@@ -129,7 +128,8 @@ cp .env.example .env    # set EXPO_PUBLIC_API_URL to your computer's LAN IP
 npx expo start -c
 ```
 
-* For standard Expo Go development, run `npx expo start` and scan its QR code. **Voice/video calls require the custom Expo development build and do not run in Expo Go.** Sign in to EAS with `npx eas-cli login`, build/install it with `npm run build:dev:android` or `npm run build:dev:ios`, then start Metro with `npm run start:dev-client`. Rebuild the native app whenever a native dependency or plugin changes.
+* Open on Android: Press **`a`** (or scan QR code from Expo Go app).
+* Open on iOS: Press **`i`** (or scan QR code with Camera app).
 
 ---
 

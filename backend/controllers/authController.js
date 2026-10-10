@@ -104,51 +104,6 @@ exports.logoutAll = asyncHandler(async (req, res) => {
 
 exports.me = asyncHandler(async (req, res) => res.json({ success: true, user: clean(req.user) }));
 
-exports.googleAuth = asyncHandler(async (req, res) => {
-  const { email, name, googleId, avatar, country = 'Nigeria', language = 'English' } = req.body;
-  if (!email) throw httpError(400, 'Google email is required.');
-  const normalizedEmail = email.toLowerCase().trim();
-
-  let user = await User.findOne({ $or: [{ googleId }, { email: normalizedEmail }] }).select('+password');
-  if (user) {
-    if (!user.googleId && googleId) {
-      user.googleId = googleId;
-    }
-    if (user.emailVerified === false) {
-      user.emailVerified = true;
-    }
-    user.loginActivity = [{ ip: req.ip, device: req.headers['user-agent'] }, ...(user.loginActivity || [])].slice(0, 20);
-    user.lastSeen = new Date();
-    await user.save();
-    return res.json({ success: true, token: sign(user), user: clean(user) });
-  }
-
-  // Create new user via Google
-  let baseUsername = (name || normalizedEmail.split('@')[0]).toLowerCase().replace(/[^a-z0-9._]/g, '').slice(0, 20) || 'vibe_user';
-  let username = baseUsername;
-  let count = 1;
-  while (await User.exists({ username })) {
-    username = `${baseUsername}${count++}`;
-  }
-
-  const randomPassword = crypto.randomBytes(16).toString('hex');
-  const passwordHash = await bcrypt.hash(randomPassword, 12);
-
-  user = await User.create({
-    fullName: name || username,
-    username,
-    email: normalizedEmail,
-    googleId,
-    password: passwordHash,
-    avatar: avatar || '',
-    country,
-    language,
-    emailVerified: true,
-  });
-
-  res.status(201).json({ success: true, token: sign(user), user: clean(user) });
-});
-
 exports.forgotPassword = asyncHandler(async (req, res) => {
   const email = req.body.email.toLowerCase().trim();
   const user = await User.findOne({ email });
@@ -208,4 +163,3 @@ exports.changePassword = asyncHandler(async (req, res) => {
   await user.save();
   res.json({ success: true, message: 'Password changed.' });
 });
-

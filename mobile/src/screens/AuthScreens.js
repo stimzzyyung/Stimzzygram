@@ -55,12 +55,11 @@ const Screen = ({ children, title, subtitle, navigation }) => {
 };
 
 export function LoginScreen({ navigation }) {
-  const { login, googleLogin } = useAuth();
+  const { login } = useAuth();
   const { colors } = useTheme();
   const [identifier, setId] = useState('');
   const [password, setPw] = useState('');
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
 
   const submit = async () => {
@@ -75,24 +74,6 @@ export function LoginScreen({ navigation }) {
     }
   };
 
-  const handleGoogleAuth = async () => {
-    setGoogleLoading(true);
-    setError('');
-    try {
-      // Secure Google Sign-In flow simulation/OAuth verification
-      // Does NOT access or store user Google password
-      const simulatedEmail = identifier.includes('@gmail.com') ? identifier.trim() : 'stimzzy.user@gmail.com';
-      await googleLogin({
-        email: simulatedEmail,
-        name: 'Stimzzy Google User',
-        googleId: `goog_${Date.now()}`,
-      });
-    } catch (e) {
-      setError(e.message || 'Google sign-in could not be completed.');
-      setGoogleLoading(false);
-    }
-  };
-
   return (
     <Screen title="Welcome back 👋" subtitle="Log in to your StimzzyVibe account." navigation={navigation}>
       <Input icon="person-outline" placeholder="Email or username" autoCapitalize="none" value={identifier} onChangeText={setId} />
@@ -100,33 +81,6 @@ export function LoginScreen({ navigation }) {
       {!!error && <Text style={{ color: colors.danger, marginBottom: 12 }}>{error}</Text>}
       
       <GradientButton title="Log In" onPress={submit} loading={loading} />
-
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 20 }}>
-        <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
-        <Text style={{ marginHorizontal: 12, color: colors.muted, fontSize: 13, fontWeight: '600' }}>OR</Text>
-        <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
-      </View>
-
-      <TouchableOpacity
-        onPress={handleGoogleAuth}
-        disabled={googleLoading}
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: colors.card,
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: 14,
-          paddingVertical: 14,
-          paddingHorizontal: 16,
-        }}
-      >
-        <Ionicons name="logo-google" size={20} color="#EA4335" style={{ marginRight: 10 }} />
-        <Text style={{ color: colors.text, fontWeight: '700', fontSize: 15 }}>
-          {googleLoading ? 'Connecting...' : 'Continue with Google'}
-        </Text>
-      </TouchableOpacity>
 
       <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={{ alignSelf: 'center', padding: 14 }}>
         <Text style={{ color: colors.primary, fontWeight: '600' }}>Forgot password?</Text>
@@ -144,7 +98,7 @@ export function LoginScreen({ navigation }) {
 }
 
 export function RegisterScreen({ navigation }) {
-  const { register, googleLogin } = useAuth();
+  const { register } = useAuth();
   const { colors } = useTheme();
   const [f, setF] = useState({
     fullName: '',
@@ -157,12 +111,9 @@ export function RegisterScreen({ navigation }) {
   });
   const [avatar, setAvatar] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
 
   const set = (k) => (v) => setF((x) => ({ ...x, [k]: v }));
-
-  const isGmail = /@g(oogle)?mail\.com$/i.test(f.email.trim());
 
   const pickImage = async (fromCamera = false) => {
     try {
@@ -220,24 +171,6 @@ export function RegisterScreen({ navigation }) {
     }
   };
 
-  const handleGoogleSignup = async () => {
-    setGoogleLoading(true);
-    setError('');
-    try {
-      const targetEmail = f.email && isGmail ? f.email.trim() : 'stimzzy.user@gmail.com';
-      await googleLogin({
-        email: targetEmail,
-        name: f.fullName.trim() || 'Stimzzy User',
-        country: f.country || 'Nigeria',
-        language: f.language || 'English',
-        googleId: `goog_${Date.now()}`,
-      });
-    } catch (e) {
-      setError(e.message || 'Google sign-up failed.');
-      setGoogleLoading(false);
-    }
-  };
-
   return (
     <Screen title="Join StimzzyVibe" subtitle="Create your energetic profile in seconds." navigation={navigation}>
       {/* Profile Picture Upload & Circular Preview */}
@@ -290,30 +223,6 @@ export function RegisterScreen({ navigation }) {
         onChangeText={set('email')}
       />
 
-      {/* Gmail Detection Banner */}
-      {isGmail && (
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: 'rgba(234, 67, 53, 0.12)',
-            borderWidth: 1,
-            borderColor: '#EA4335',
-            borderRadius: 12,
-            padding: 12,
-            marginBottom: 14,
-          }}
-        >
-          <Ionicons name="logo-google" size={20} color="#EA4335" style={{ marginRight: 10 }} />
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.text, fontWeight: '700', fontSize: 13 }}>Google Account Detected</Text>
-            <Text style={{ color: colors.muted, fontSize: 11, marginTop: 2 }}>
-              You can sign up with 1-tap Google Authentication or continue with your own password.
-            </Text>
-          </View>
-        </View>
-      )}
-
       <Input icon="lock-closed-outline" placeholder="Password (minimum 8 characters)" secureTextEntry value={f.password} onChangeText={set('password')} />
       <Input
         icon="calendar-outline"
@@ -350,33 +259,6 @@ export function RegisterScreen({ navigation }) {
       {!!error && <Text style={{ color: colors.danger, marginBottom: 12 }}>{error}</Text>}
 
       <GradientButton title="Create Account" onPress={submit} loading={loading} />
-
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 18 }}>
-        <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
-        <Text style={{ marginHorizontal: 12, color: colors.muted, fontSize: 13, fontWeight: '600' }}>OR</Text>
-        <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
-      </View>
-
-      <TouchableOpacity
-        onPress={handleGoogleSignup}
-        disabled={googleLoading}
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: colors.card,
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: 14,
-          paddingVertical: 14,
-          paddingHorizontal: 16,
-        }}
-      >
-        <Ionicons name="logo-google" size={20} color="#EA4335" style={{ marginRight: 10 }} />
-        <Text style={{ color: colors.text, fontWeight: '700', fontSize: 15 }}>
-          {googleLoading ? 'Connecting...' : 'Sign up with Google'}
-        </Text>
-      </TouchableOpacity>
 
       <TouchableOpacity onPress={() => navigation.replace('Login')} style={{ alignSelf: 'center', marginTop: 20 }}>
         <Text style={{ color: colors.muted }}>

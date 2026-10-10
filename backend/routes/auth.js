@@ -37,9 +37,6 @@ router.post('/verify-email', verificationAttemptLimit, [
 router.post('/resend-verification', verificationEmailLimit, [
   body('email').isEmail().withMessage('Enter a valid email.').normalizeEmail(),
 ], validate, c.resendVerification);
-router.post('/google', [
-  body('email').isEmail().withMessage('Enter a valid Google email address.').normalizeEmail(),
-], validate, c.googleAuth);
 router.post('/login', [body('identifier').notEmpty().withMessage('Email or username is required.'), body('password').notEmpty().withMessage('Password is required.')], validate, c.login);
 router.post('/logout', protect, c.logout);
 router.post('/logout-all', protect, c.logoutAll);

@@ -49,11 +49,6 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (identifier, password) => { const d = await api.post('/auth/login', { identifier, password }); await start(d.token, d.user); };
-  const googleLogin = async (payload) => {
-    const d = await api.post('/auth/google', payload);
-    await start(d.token, d.user);
-    return d.user;
-  };
   const register = async (form) => upload('POST', '/auth/register', form);
   const verifyEmail = async (email, code) => {
     const d = await api.post('/auth/verify-email', { email, code });
@@ -62,5 +57,5 @@ export function AuthProvider({ children }) {
   const resendVerification = (email) => api.post('/auth/resend-verification', { email });
   const refreshUser = useCallback(async () => { const { user: u } = await api.get('/auth/me'); setUser(u); return u; }, []);
 
-  return <Ctx.Provider value={{ user, setUser, booting, login, googleLogin, register, verifyEmail, resendVerification, logout, refreshUser }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, setUser, booting, login, register, verifyEmail, resendVerification, logout, refreshUser }}>{children}</Ctx.Provider>;
 }

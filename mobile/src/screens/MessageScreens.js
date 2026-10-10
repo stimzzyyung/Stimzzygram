@@ -31,7 +31,6 @@ import { Avatar, Header, Loading, ErrorState, Empty, VerifiedBadge, FloatingReac
 import { timeAgo } from '../utils/format';
 import { TRANSLATION_LANGUAGES } from '../data/locales';
 import InlineVideoPlayer from '../components/InlineVideoPlayer';
-import { ChatCallButtons } from '../components/ChatCalls';
 import { palette, gradient, burgundyGradient } from '../theme';
 
 const REACTIONS = ['❤️', '😂', '😮', '😢', '🔥', '👍'];
@@ -1159,8 +1158,6 @@ export function ChatScreen({ navigation, route }) {
             </Text>
           </View>
         </TouchableOpacity>
-
-        <ChatCallButtons user={otherUser} conversationId={convoId} enabled={!isGroup} colors={colors} />
 
         {/* Action icons: Rizz Bot & Search */}
         <TouchableOpacity
